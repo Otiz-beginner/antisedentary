@@ -3,16 +3,14 @@
   "version": "0.1.0",
   "description": "防久坐小程式",
   "main": "src/main/main.js",
-  "directories": {
-    "doc": "docs"
-  },
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
     "postinstall": "node node_modules/electron/install.js && node scripts/copy-fonts.js",
     "build:helper": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-helper.ps1",
     "fonts": "node scripts/copy-fonts.js",
-    "prestart": "node scripts/copy-fonts.js"
+    "prestart": "node scripts/copy-fonts.js",
+    "dist": "npm run build:helper && node scripts/copy-fonts.js && electron-builder --win dir"
   },
   "type": "commonjs",
   "devDependencies": {
@@ -21,5 +19,28 @@
     "electron": "44.9.0",
     "electron-builder": "26.15.3"
   },
-  "private": true
+  "private": true,
+  "build": {
+    "appId": "local.antisedentary",
+    "productName": "Antisedentary",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "assets/icon.png",
+      "signExecutable": false
+    },
+    "extraResources": [
+      {
+        "from": "resources/lockhelper.exe",
+        "to": "lockhelper.exe"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  }
 }
