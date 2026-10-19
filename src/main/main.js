@@ -107,6 +107,11 @@ function start() {
 
   ipcMain.on('note:update', (_e, text) => controller.setDraftNote(text));
   ipcMain.on('break:start', () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'card' }));
+  ipcMain.handle('break:now', (_e, note) => {
+    log('break from dashboard', { phase: controller.phase, note: note ? `${String(note).length} chars` : '' });
+    controller.breakNow(note);
+    return controller.phase;
+  });
   ipcMain.on('question:answer', (_e, stood) => { log('answer', { stood }); controller.answer(stood); });
   ipcMain.handle('records:get', () => ({
     segments: db.listSegments(),

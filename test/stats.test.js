@@ -69,6 +69,6 @@ test('meetingsOnDay filters by start day', () => {
 });
 
 test('isEarly true only for card and tray', () => {
-  assert.deepEqual(['card', 'tray', 'timeout', 'idle', 'meeting', 'quit'].map((r) => Stats.isEarly({ endReason: r })),
-    [true, true, false, false, false, false]);
+  assert.deepEqual(['card', 'tray', 'dashboard', 'timeout', 'idle', 'meeting', 'quit'].map((r) => Stats.isEarly({ endReason: r })),
+    [true, true, true, false, false, false, false]);
 });

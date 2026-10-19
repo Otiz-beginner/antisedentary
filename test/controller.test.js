@@ -198,3 +198,34 @@ test('setConfig applies new timings to the running segment', () => {
   assert.deepEqual(calls.find((c) => c[0] === 'showLock')[1], { startsAt: 14 * M, endsAt: 19 * M });
   assert.equal(locks[0].opts.maxSeconds, 305);
 });
+
+test('breakNow from the dashboard saves the note and locks', () => {
+  const { ctl, clock, segments, locks, advance } = setup();
+  ctl.tick();
+  advance(12 * M);
+  ctl.breakNow('  讀完 CTS 那章 \n');
+  assert.equal(ctl.phase, 'locked');
+  assert.deepEqual(segments, [{ startedAt: 0, endedAt: clock.t, endReason: 'dashboard', note: '讀完 CTS 那章', host: 'pc' }]);
+  assert.equal(locks.length, 1);
+});
+
+test('breakNow while not counting locks without saving a segment', () => {
+  const { ctl, segments, locks } = setup();
+  ctl.breakNow('沒有在計時');
+  assert.equal(ctl.phase, 'locked');
+  assert.deepEqual(segments, []);
+  assert.equal(locks.length, 1);
+});
+
+test('a dashboard note does not leak when the break is ignored', () => {
+  const { ctl, clock, segments, advance } = setup();
+  ctl.dispatch({ type: 'meetingOn', now: 0 });
+  ctl.breakNow('開會中按的');
+  assert.equal(ctl.phase, 'meeting');
+  ctl.dispatch({ type: 'meetingOff', now: M });
+  clock.t = M;
+  ctl.tick();
+  advance(5 * M);
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'tray' });
+  assert.equal(segments.at(-1).note, '');
+});

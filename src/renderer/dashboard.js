@@ -119,7 +119,31 @@ async function updateCup() {
   $('cup-label').textContent = v.label;
   $('cup-value').textContent = v.value;
   $('cup-unit').textContent = v.unit;
+  updateEarly(status.phase);
 }
+
+// 側欄：從 dashboard 提早休息
+const EARLY_HINTS = {
+  locked: '正在休息中',
+  meeting: '開會模式中不能提早休息',
+  away: '還沒開始計時，這次不會留下紀錄',
+  paused: '暫停中：會存到你離開前那一刻',
+};
+function updateEarly(phase) {
+  const disabled = phase === 'locked' || phase === 'meeting';
+  $('early-start').disabled = disabled;
+  $('early-note').disabled = disabled;
+  $('early-hint').textContent = EARLY_HINTS[phase] || '';
+}
+
+$('early-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('early-start').disabled = true;
+  const phase = await window.api.breakNow($('early-note').value);
+  if (phase === 'locked') $('early-note').value = '';
+  load();
+  updateCup();
+});
 
 // 左側設定：欄位、範圍、說明都由 main 提供，存檔前由 main 再驗證一次
 let settingsDefaults = {};

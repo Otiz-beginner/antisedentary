@@ -70,6 +70,12 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   return {
     tick: () => dispatch({ type: 'tick', now: now(), idleMs: getIdleMs() }),
     dispatch,
+    // 從 dashboard 提早休息：寫的內容存進這一段（沒寫就沿用提醒卡上的草稿）
+    breakNow(note = '') {
+      if (String(note).trim()) draft = String(note);
+      dispatch({ type: 'startBreak', now: now(), source: 'dashboard' });
+      draft = ''; // 沒被採用（例如開會中）也不能留到下一段
+    },
     // 使用者在 dashboard 改了設定：之後的判斷都用新的時間
     setConfig: (next) => { config = next; },
     // 回答「剛剛有站起來嗎？」

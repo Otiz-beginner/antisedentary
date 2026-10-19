@@ -31,6 +31,7 @@ test('empty note shows 沒有寫紀錄', () => {
 test('card and tray segments get 提早休息 tag', () => {
   assert.ok(renderDayList([seg({ endReason: 'card' })]).includes('提早休息'));
   assert.ok(renderDayList([seg({ endReason: 'tray' })]).includes('提早休息'));
+  assert.ok(renderDayList([seg({ endReason: 'dashboard' })]).includes('提早休息'));
   assert.ok(!renderDayList([seg({ endReason: 'timeout' })]).includes('提早休息'));
 });
 

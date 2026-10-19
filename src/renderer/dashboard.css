@@ -89,7 +89,21 @@ h1 { font-family: var(--round); font-weight: 400; font-size: 28px; margin: 0 0 1
   #settings-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 20px; }
   .field:first-child { border-top: 1px solid #EEF0F6; padding-top: 10px; }
 }
-.cup { position: relative; height: 380px; overflow: hidden; border-radius: 22px 22px 22px 8px;
+/* 側欄：提早休息 */
+.early { margin-top: 14px; padding: 16px 16px 14px; }
+.early h2 { font-family: var(--round); font-weight: 400; font-size: 17px; margin: 0 0 8px; }
+.early textarea { width: 100%; resize: vertical; min-height: 84px; font: inherit; font-size: 13px; color: var(--ink);
+                  padding: 7px 9px; border: 1px solid var(--slate); border-radius: 10px; background: #fff; }
+.early textarea::placeholder { color: #8C97B0; }
+.early textarea:focus { outline: none; border-color: var(--lilac); box-shadow: 0 0 0 3px rgba(210,186,255,.45); }
+.early-hint { min-height: 1.2em; font-size: 12px; color: var(--ink-soft); margin: 6px 0 8px; line-height: 1.45; }
+.early button { width: 100%; font: inherit; font-size: 13.5px; font-weight: 500; color: #fff; background: var(--mist);
+                border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+.early button:hover:not(:disabled) { background: #6889B6; }
+.early button:disabled { background: var(--slate); cursor: not-allowed; }
+.early button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+
+.cup { position: relative; height: 300px; overflow: hidden; border-radius: 22px 22px 22px 8px;
        background: linear-gradient(160deg, #FFFFFF 0%, #F3F3FF 55%, var(--lavender) 140%);
        border: 1px solid rgba(191,201,223,.9); }
 .cup[data-tone="meeting"] { background: linear-gradient(160deg, #FFFFFF 0%, #F6F0FF 50%, var(--lilac) 160%); }

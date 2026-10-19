@@ -65,7 +65,7 @@
 
   const segmentsOnDay = (visible, key) => visible.filter((s) => dayKey(s.startedAt) === key);
   const meetingsOnDay = (meetings, key) => meetings.filter((m) => dayKey(m.startedAt) === key);
-  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray';
+  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray' || s.endReason === 'dashboard';
 
   const api = { dayKey, visibleSegments, summarize, countsByDay, heatLevel, streaks, segmentsOnDay, meetingsOnDay, isEarly };
   if (typeof module !== 'undefined') module.exports = api;

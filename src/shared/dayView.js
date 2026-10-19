@@ -6,7 +6,7 @@
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
   const pad = (n) => String(n).padStart(2, '0');
   const hm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray';
+  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray' || s.endReason === 'dashboard';
 
   function renderDayList(segments) {
     if (!segments.length) return '<p class="none">這天沒有紀錄。</p>';
