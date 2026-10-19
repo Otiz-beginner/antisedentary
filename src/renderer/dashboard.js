@@ -134,12 +134,35 @@ function updateEarly(phase) {
   $('early-start').disabled = disabled;
   $('early-note').disabled = disabled;
   $('early-hint').textContent = EARLY_HINTS[phase] || '';
+  if (disabled) setConfirming(false);
 }
 
-$('early-form').addEventListener('submit', async (e) => {
+// 按「開始休息」先問一句，按「確定」才真的鎖定
+function setConfirming(on) {
+  $('early-confirm').hidden = !on;
+  $('early-start').hidden = on;
+  if (on) $('early-cancel').focus();
+}
+
+$('early-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  $('early-start').disabled = true;
+  setConfirming(true);
+});
+
+$('early-cancel').addEventListener('click', () => {
+  setConfirming(false);
+  $('early-start').focus();
+});
+
+$('early-confirm').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('early-cancel').click();
+});
+
+$('early-yes').addEventListener('click', async () => {
+  $('early-yes').disabled = true;
   const phase = await window.api.breakNow($('early-note').value);
+  $('early-yes').disabled = false;
+  setConfirming(false);
   if (phase === 'locked') $('early-note').value = '';
   load();
   updateCup();

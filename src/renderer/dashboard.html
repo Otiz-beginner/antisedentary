@@ -62,6 +62,13 @@
       <textarea id="early-note" rows="4" placeholder="這段時間做了什麼？（可以不寫）" aria-describedby="early-hint"></textarea>
       <p class="early-hint" id="early-hint" role="status"></p>
       <button type="submit" id="early-start">開始休息</button>
+      <div class="early-confirm" id="early-confirm" hidden>
+        <p class="early-ask" id="early-ask">確定要休息嗎？</p>
+        <div class="early-confirm-row">
+          <button type="button" class="ghost" id="early-cancel">取消</button>
+          <button type="button" id="early-yes">確定</button>
+        </div>
+      </div>
     </form>
   </aside>
   </div>
