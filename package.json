@@ -1,0 +1,20 @@
+{
+  "name": "antisedentary",
+  "version": "0.1.0",
+  "description": "防久坐小程式",
+  "main": "src/main/main.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "postinstall": "node node_modules/electron/install.js"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.15.3"
+  },
+  "private": true
+}
