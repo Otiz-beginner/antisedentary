@@ -8,8 +8,10 @@ const { DatabaseSync } = require('node:sqlite');
 function openDb(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const db = new DatabaseSync(filePath);
+  // 不用 WAL：每次存檔都直接寫進主檔，不會因為暫存的 -wal 檔不見而遺失紀錄
   db.exec(`
-    PRAGMA journal_mode = WAL;
+    PRAGMA journal_mode = DELETE;
+    PRAGMA synchronous = FULL;
     CREATE TABLE IF NOT EXISTS segments (
       id INTEGER PRIMARY KEY,
       started_at INTEGER NOT NULL,
@@ -59,8 +61,23 @@ function openDb(filePath) {
       return row ? JSON.parse(row.json) : {};
     },
     saveSettings: (settings) => { upsertSettings.run(JSON.stringify(settings)); },
+    journalMode: () => db.prepare('PRAGMA journal_mode').get().journal_mode,
+    // 存一份完整一致的複本到 target（VACUUM INTO 不會讀到寫到一半的狀態）
+    backupTo: (target) => db.prepare('VACUUM INTO ?').run(target),
     close: () => db.close(),
   };
 }
 
-module.exports = { openDb };
+// 每天第一次啟動時備份一份到 dir，只保留最新的 keep 份
+function dailyBackup(db, dir, now = Date.now(), keep = 14) {
+  const d = new Date(now);
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const target = path.join(dir, `antisedentary-${day}.db`);
+  fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(target)) db.backupTo(target);
+  const old = fs.readdirSync(dir).filter((f) => /^antisedentary-\d{4}-\d{2}-\d{2}\.db$/.test(f)).sort();
+  for (const f of old.slice(0, Math.max(0, old.length - keep))) fs.rmSync(path.join(dir, f));
+  return target;
+}
+
+module.exports = { openDb, dailyBackup };

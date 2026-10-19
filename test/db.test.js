@@ -72,3 +72,43 @@ test('settings start empty and round-trip through the database', () => {
   assert.deepEqual(again.getSettings(), { cycleMinutes: 50 });
   again.close();
 });
+
+test('database uses a rollback journal, not WAL', () => {
+  const file = tmpFile();
+  const db = openDb(file);
+  assert.equal(db.journalMode(), 'delete');
+  db.insertSegment(seg(1));
+  assert.equal(fs.existsSync(file + '-wal'), false);
+  db.close();
+});
+
+test('an existing WAL database is switched to rollback journal without losing rows', () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const file = tmpFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const raw = new DatabaseSync(file);
+  raw.exec("PRAGMA journal_mode = WAL; CREATE TABLE segments (id INTEGER PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER NOT NULL, end_reason TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', host TEXT NOT NULL); INSERT INTO segments (started_at, ended_at, end_reason, host) VALUES (1, 2, 'idle', 'pc');");
+  raw.close();
+  const db = openDb(file);
+  assert.equal(db.journalMode(), 'delete');
+  assert.equal(db.listSegments().length, 1);
+  db.close();
+});
+
+test('daily backup makes one copy per day and keeps the newest 14', () => {
+  const { dailyBackup } = require('../src/main/db');
+  const file = tmpFile();
+  const dir = path.join(path.dirname(file), 'backups');
+  const db = openDb(file);
+  db.insertSegment(seg(7));
+  for (let d = 1; d <= 16; d++) dailyBackup(db, dir, new Date(2026, 9, d, 9).getTime());
+  dailyBackup(db, dir, new Date(2026, 9, 16, 18).getTime()); // 同一天第二次：不再備份
+  const files = fs.readdirSync(dir).sort();
+  assert.equal(files.length, 14);
+  assert.equal(files[0], 'antisedentary-2026-10-03.db');
+  assert.equal(files.at(-1), 'antisedentary-2026-10-16.db');
+  const copy = openDb(path.join(dir, files.at(-1)));
+  assert.equal(copy.listSegments().length, 1);
+  copy.close();
+  db.close();
+});

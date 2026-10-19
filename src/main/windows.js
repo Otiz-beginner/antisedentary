@@ -9,77 +9,65 @@ const REMINDER_SIZE = { width: 320, height: 220 };
 const QUESTION_SIZE = { width: 320, height: 130 };
 const webPreferences = { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false };
 
-// 右下角的透明小視窗（提醒卡、問題卡）
-function createCornerWindow(file, size) {
-  const win = new BrowserWindow({
-    ...size,
-    frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true,
-    minimizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true,
-    show: false, hasShadow: false, webPreferences,
-  });
-  win.setAlwaysOnTop(true, 'screen-saver');
-  win.loadFile(path.join(RENDERER, file));
-  return win;
+function whenLoaded(win, fn) {
+  if (win.webContents.isLoading()) win.webContents.once('did-finish-load', fn);
+  else fn();
 }
 
-function placeInCorner(win, size) {
+// 視窗內容當掉或卡住時寫進日誌
+function watch(win, name, log) {
+  win.webContents.on('render-process-gone', (_e, details) => log(`${name} renderer gone`, details));
+  win.on('unresponsive', () => log(`${name} unresponsive`));
+}
+
+function cornerBounds(size) {
   const { workArea } = screen.getPrimaryDisplay();
-  win.setBounds({
+  return {
     x: workArea.x + workArea.width - size.width - 16 + 10,
     y: workArea.y + workArea.height - size.height - 16 + 10,
     ...size,
-  });
+  };
 }
 
 // 提醒卡、問題卡、鎖定遮罩、dashboard（spec §4.2、§4.3、§6）
-function createWindows() {
-  let reminder = null;
-  let question = null;
+function createWindows({ log = () => {} } = {}) {
   let lockWindows = [];
   let dashboard = null;
 
-  function ensureReminder() {
-    if (!reminder || reminder.isDestroyed()) reminder = createCornerWindow('reminder.html', REMINDER_SIZE);
-    return reminder;
+  // 右下角的卡片：每次顯示都開一個新視窗，收起時直接關掉。
+  // 不重複使用開了好幾小時的舊視窗，避免卡片叫出來了卻看不到。
+  function cornerCard(file, size, channel, name) {
+    let win = null;
+    return {
+      show(data) {
+        if (win && !win.isDestroyed()) win.destroy();
+        const bounds = cornerBounds(size);
+        win = new BrowserWindow({
+          ...bounds,
+          frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true,
+          minimizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true,
+          show: false, hasShadow: false, webPreferences,
+        });
+        win.setAlwaysOnTop(true, 'screen-saver');
+        watch(win, name, log);
+        win.loadFile(path.join(RENDERER, file));
+        const shown = win;
+        whenLoaded(shown, () => {
+          if (shown.isDestroyed()) return;
+          shown.webContents.send(channel, data);
+          shown.showInactive(); // 不搶焦點；點進去才會拿到焦點
+          log(`${name} shown`, { bounds: shown.getBounds(), visible: shown.isVisible() });
+        });
+      },
+      hide() {
+        if (win && !win.isDestroyed()) win.destroy();
+        win = null;
+      },
+    };
   }
 
-  function ensureQuestion() {
-    if (!question || question.isDestroyed()) question = createCornerWindow('question.html', QUESTION_SIZE);
-    return question;
-  }
-
-  const placeReminder = (win) => placeInCorner(win, REMINDER_SIZE);
-
-  function showQuestion(data) {
-    const win = ensureQuestion();
-    placeInCorner(win, QUESTION_SIZE);
-    whenLoaded(win, () => {
-      win.webContents.send('question:show', data);
-      win.showInactive(); // 不搶焦點，你可以繼續打字
-    });
-  }
-
-  function hideQuestion() {
-    if (question && !question.isDestroyed()) question.hide();
-  }
-
-  function whenLoaded(win, fn) {
-    if (win.webContents.isLoading()) win.webContents.once('did-finish-load', fn);
-    else fn();
-  }
-
-  function showReminder(data) {
-    const win = ensureReminder();
-    placeReminder(win);
-    whenLoaded(win, () => {
-      win.webContents.send('reminder:show', data);
-      win.showInactive(); // 不搶焦點；點進輸入框才會拿到焦點
-    });
-  }
-
-  function hideReminder() {
-    if (reminder && !reminder.isDestroyed()) reminder.hide();
-  }
+  const reminder = cornerCard('reminder.html', REMINDER_SIZE, 'reminder:show', 'reminder');
+  const question = cornerCard('question.html', QUESTION_SIZE, 'question:show', 'question');
 
   function showLock(data) {
     hideLock();
@@ -93,14 +81,17 @@ function createWindows() {
       });
       win.setAlwaysOnTop(true, 'screen-saver');
       win.setBounds(display.bounds);
+      watch(win, 'lock', log);
       win.loadFile(path.join(RENDERER, 'lock.html'));
       whenLoaded(win, () => {
+        if (win.isDestroyed()) return;
         win.webContents.send('lock:show', { ...data, primary: display.id === primaryId });
         win.show();
         win.moveTop();
       });
       return win;
     });
+    log('lock shown', { displays: lockWindows.length });
   }
 
   function hideLock() {
@@ -119,22 +110,22 @@ function createWindows() {
       backgroundColor: '#EEF0F8', autoHideMenuBar: true, show: false, webPreferences,
     });
     dashboard.setMenu(null);
+    watch(dashboard, 'dashboard', log);
     dashboard.loadFile(path.join(RENDERER, 'dashboard.html'));
     dashboard.once('ready-to-show', () => dashboard.show());
   }
 
-  // 啟動時先載入兩張卡片，第一次出現時才不會慢半拍
-  ensureReminder();
-  ensureQuestion();
-
-  // Windows 關機或登出時，Electron 只會在視窗上發出 session-end
+  // Windows 關機或登出時，Electron 只會在視窗上發出 session-end。
+  // 用一個永遠不顯示、也不會被關掉的小視窗來接這個訊號。
+  const keeper = new BrowserWindow({ width: 1, height: 1, show: false, skipTaskbar: true, frame: false });
   function onSessionEnd(fn) {
-    ensureReminder().on('session-end', fn);
+    keeper.on('session-end', fn);
   }
 
   return {
-    showReminder, hideReminder, showQuestion, hideQuestion, showLock, hideLock, openDashboard,
-    onSessionEnd,
+    showReminder: reminder.show, hideReminder: reminder.hide,
+    showQuestion: question.show, hideQuestion: question.hide,
+    showLock, hideLock, openDashboard, onSessionEnd,
   };
 }
 

@@ -5,24 +5,41 @@ const path = require('node:path');
 const { app, globalShortcut, ipcMain, powerMonitor } = require('electron');
 const { getConfig } = require('../core/config');
 const { DEFAULTS, FIELDS, validate } = require('../core/settings');
-const { openDb } = require('./db');
+const { openDb, dailyBackup } = require('./db');
+const { createLogger } = require('./logger');
 const { createController } = require('./controller');
 const { startInputLock } = require('./inputLock');
 const { createWindows } = require('./windows');
 const { createTray } = require('./tray');
 
 const MEETING_HOTKEY = 'Control+Alt+Shift+M';
+const HEARTBEAT_MS = 10 * 60 * 1000;
 
 // `Antisedentary.exe --quit`：請正在跑的那一個存好檔再結束（更新程式前用）
 const QUIT_FLAG = '--quit';
+
+const DATA_DIR = path.join(app.getPath('appData'), 'antisedentary');
+const log = createLogger(path.join(DATA_DIR, 'logs', 'app.log'));
+
+// 不用顯示卡加速：避免顯示卡相關的子程序出錯時把整個程式拖垮
+app.disableHardwareAcceleration();
+
+process.on('uncaughtException', (err) => log('uncaughtException', err));
+process.on('unhandledRejection', (err) => log('unhandledRejection', err));
+process.on('exit', (code) => log('process exit', { code }));
+app.on('child-process-gone', (_e, details) => log('child process gone', details));
+app.on('render-process-gone', (_e, _wc, details) => log('render process gone', details));
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else if (process.argv.includes(QUIT_FLAG)) {
   app.quit(); // 沒有正在跑的，什麼都不用做
 } else {
-  app.on('second-instance', (_e, argv) => { if (argv.includes(QUIT_FLAG)) app.quit(); });
-  app.whenReady().then(start);
+  app.on('second-instance', (_e, argv) => {
+    log('second instance', { argv: argv.slice(1) });
+    if (argv.includes(QUIT_FLAG)) app.quit();
+  });
+  app.whenReady().then(start).catch((err) => log('start failed', err));
 }
 
 function lockHelperPath() {
@@ -32,27 +49,45 @@ function lockHelperPath() {
 }
 
 function start() {
-  const db = openDb(path.join(app.getPath('appData'), 'antisedentary', 'antisedentary.db'));
+  const db = openDb(path.join(DATA_DIR, 'antisedentary.db'));
+  try {
+    dailyBackup(db, path.join(DATA_DIR, 'backups'));
+  } catch (err) {
+    log('daily backup failed', err);
+  }
   const stored = validate(db.getSettings());
   let settings = stored.ok ? stored.value : { ...DEFAULTS };
   let config = getConfig(process.env, settings);
-  const windows = createWindows();
+  log('started', {
+    version: app.getVersion(), pid: process.pid, segments: db.listSegments().length,
+    journal: db.journalMode(), settings,
+  });
+
+  const windows = createWindows({ log });
   let tray = null;
 
   const controller = createController({
     config,
-    db,
+    db: {
+      insertSegment: (s) => { log('save segment', { ...s, note: s.note ? `${s.note.length} chars` : '' }); return db.insertSegment(s); },
+      insertMeeting: (m) => { log('save meeting', m); return db.insertMeeting(m); },
+    },
     host: os.hostname(),
     getIdleMs: () => powerMonitor.getSystemIdleTime() * 1000,
-    startLock: (opts) => startInputLock({ exePath: lockHelperPath(), ...opts }),
+    startLock: (opts) => {
+      const handle = startInputLock({ exePath: lockHelperPath(), ...opts });
+      handle.ready.then(() => log('input lock ready'), (err) => log('input lock failed', err));
+      handle.exited.then((code) => log('input lock exited', { code }));
+      return handle;
+    },
     ui: {
-      showReminder: windows.showReminder,
+      showReminder: (d) => { log('show reminder', d); windows.showReminder(d); },
       hideReminder: windows.hideReminder,
-      showQuestion: windows.showQuestion,
+      showQuestion: (d) => { log('show question', d); windows.showQuestion(d); },
       hideQuestion: windows.hideQuestion,
-      showLock: windows.showLock,
-      hideLock: windows.hideLock,
-      setMeetingIndicator: (on) => tray && tray.setMeetingIndicator(on),
+      showLock: (d) => { log('lock', d); windows.showLock(d); },
+      hideLock: () => { log('unlock'); windows.hideLock(); },
+      setMeetingIndicator: (on) => { log('meeting mode', { on }); if (tray) tray.setMeetingIndicator(on); },
     },
   });
 
@@ -63,16 +98,16 @@ function start() {
     onOpenRecords: windows.openDashboard,
     onBreakNow: () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'tray' }),
     onMeetingToggle: toggleMeeting,
-    onQuit: () => app.quit(),
+    onQuit: () => { log('quit from tray'); app.quit(); },
   });
 
   if (!globalShortcut.register(MEETING_HOTKEY, toggleMeeting)) {
-    console.error(`could not register ${MEETING_HOTKEY}`);
+    log(`could not register ${MEETING_HOTKEY}`);
   }
 
   ipcMain.on('note:update', (_e, text) => controller.setDraftNote(text));
   ipcMain.on('break:start', () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'card' }));
-  ipcMain.on('question:answer', (_e, stood) => controller.answer(stood));
+  ipcMain.on('question:answer', (_e, stood) => { log('answer', { stood }); controller.answer(stood); });
   ipcMain.handle('records:get', () => ({
     segments: db.listSegments(),
     meetings: db.listMeetings(),
@@ -92,31 +127,42 @@ function start() {
     db.saveSettings(settings);
     config = getConfig(process.env, settings);
     controller.setConfig(config);
+    log('settings saved', settings);
     return { ok: true, values: settings };
   });
 
-  const suspend = () => controller.dispatch({ type: 'suspend', now: Date.now() });
-  const resume = () => controller.dispatch({ type: 'resume', now: Date.now() });
-  powerMonitor.on('suspend', suspend);
-  powerMonitor.on('lock-screen', suspend);
-  powerMonitor.on('resume', resume);
-  powerMonitor.on('unlock-screen', resume);
+  const suspend = (why) => () => { log(why); controller.dispatch({ type: 'suspend', now: Date.now() }); };
+  const resume = (why) => () => { log(why); controller.dispatch({ type: 'resume', now: Date.now() }); };
+  powerMonitor.on('suspend', suspend('suspend'));
+  powerMonitor.on('lock-screen', suspend('lock-screen'));
+  powerMonitor.on('resume', resume('resume'));
+  powerMonitor.on('unlock-screen', resume('unlock-screen'));
 
-  const ticker = setInterval(controller.tick, config.tickMs);
+  const ticker = setInterval(() => {
+    try {
+      controller.tick();
+    } catch (err) {
+      log('tick failed', err);
+    }
+  }, config.tickMs);
   controller.tick();
+  // 每 10 分鐘記一次「還活著」，程式突然不見時才知道大概是幾點
+  const heartbeat = setInterval(() => log('alive', { phase: controller.phase }), HEARTBEAT_MS);
 
   // 程式結束、或 Windows 關機/登出（不會觸發 before-quit）時，把進行中的段落和開會紀錄存起來
   let closed = false;
-  const shutdown = () => {
+  const shutdown = (why) => () => {
     if (closed) return;
     closed = true;
+    log('shutdown', { why, phase: controller.phase });
     clearInterval(ticker);
+    clearInterval(heartbeat);
     controller.quit();
     globalShortcut.unregisterAll();
     db.close();
   };
-  app.on('before-quit', shutdown);
-  windows.onSessionEnd(shutdown);
+  app.on('before-quit', shutdown('before-quit'));
+  windows.onSessionEnd(shutdown('session-end'));
 
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true });
 }
