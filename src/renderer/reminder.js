@@ -4,7 +4,6 @@
 const card = document.getElementById('card');
 const note = document.getElementById('note');
 let timer = null;
-let debounce = null;
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
@@ -20,13 +19,10 @@ window.api.onReminder(({ startsAt, endsAt }) => {
   timer = setInterval(update, 250);
 });
 
-note.addEventListener('input', () => {
-  clearTimeout(debounce);
-  debounce = setTimeout(() => window.api.setDraftNote(note.value), 300);
-});
+// 每次輸入都立刻送出，鎖定那一刻的草稿才會是完整的
+note.addEventListener('input', () => window.api.setDraftNote(note.value));
 
 document.getElementById('start').addEventListener('click', () => {
-  clearTimeout(debounce);
   window.api.setDraftNote(note.value);
   window.api.startBreak();
 });

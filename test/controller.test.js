@@ -53,10 +53,11 @@ test('draft note attaches to the saved segment then clears', () => {
 });
 
 test('note is trimmed', () => {
-  const { ctl, clock, segments } = setup();
+  const { ctl, clock, segments, advance } = setup();
   ctl.tick();
+  advance(30 * M);
   ctl.setDraftNote('  跑完 CTS \n');
-  ctl.dispatch({ type: 'startBreak', now: clock.t + M, source: 'tray' });
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'card' });
   assert.equal(segments[0].note, '跑完 CTS');
 });
 
@@ -125,4 +126,27 @@ test('full cycle at speed: reminder at 29m, lock at 32m, unlock at 35m', () => {
   assert.equal(when('showLock'), 32 * M);
   assert.equal(when('hideLock'), 35 * M);
   assert.deepEqual(segments, [{ startedAt: 0, endedAt: 32 * M, endReason: 'timeout', note: '', host: 'pc' }]);
+});
+
+test('a draft arriving after the segment was saved does not leak into the next segment', () => {
+  const { ctl, segments, advance } = setup();
+  ctl.tick();
+  advance(30 * M);
+  ctl.setDraftNote('寫到一半');
+  advance(32 * M);                 // 時間到，存下這一段
+  ctl.setDraftNote('寫到一半的最後幾個字'); // debounce 晚到的草稿
+  advance(36 * M);                 // 解鎖後開始下一段
+  ctl.dispatch({ type: 'startBreak', now: 36 * M + S, source: 'tray' });
+  assert.equal(segments[0].note, '寫到一半');
+  assert.equal(segments[1].note, '');
+});
+
+test('quit is idempotent', () => {
+  const { ctl, clock, segments } = setup();
+  ctl.tick();
+  clock.t = 5 * M;
+  ctl.quit();
+  ctl.quit();
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0].endReason, 'quit');
 });

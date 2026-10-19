@@ -34,6 +34,10 @@ function onTick(state, { now, idleMs }, config) {
       if (idleMs >= config.idleResetMs) {
         return { state: away(now), effects: endSegment(state, now - idleMs, 'idle') };
       }
+      // 兩次 tick 間隔太久（睡眠醒來時 tick 可能比 resume 事件先到）：當作離開過了
+      if (state.lastTickAt !== undefined && now - state.lastTickAt >= config.idleResetMs) {
+        return { state: away(now), effects: endSegment(state, state.lastTickAt, 'idle') };
+      }
       const reminderAt = state.segStart + config.workMs;
       const lockAt = reminderAt + config.reminderMs;
       if (state.phase === 'reminder' && now >= lockAt) {
@@ -66,8 +70,13 @@ function step(state, input, config) {
   const active = state.phase === 'working' || state.phase === 'reminder';
 
   switch (input.type) {
-    case 'tick':
-      return onTick(state, input, config);
+    case 'tick': {
+      const out = onTick(state, input, config);
+      if (out.state.phase === 'working' || out.state.phase === 'reminder') {
+        out.state = { ...out.state, lastTickAt: now };
+      }
+      return out;
+    }
 
     case 'startBreak':
       if (active) {

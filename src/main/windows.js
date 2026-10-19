@@ -99,7 +99,12 @@ function createWindows() {
   // 啟動時先載入提醒卡，第一次出現時才不會慢半拍
   ensureReminder();
 
-  return { showReminder, hideReminder, showLock, hideLock, openDashboard };
+  // Windows 關機或登出時，Electron 只會在視窗上發出 session-end
+  function onSessionEnd(fn) {
+    ensureReminder().on('session-end', fn);
+  }
+
+  return { showReminder, hideReminder, showLock, hideLock, openDashboard, onSessionEnd };
 }
 
 module.exports = { createWindows };

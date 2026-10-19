@@ -28,6 +28,13 @@ function ticksActive(t0, until, every = S) {
   return out;
 }
 
+// 最後一次輸入在 lastInput，之後每秒 tick 一次直到 until（含）
+function ticksIdleSince(lastInput, from, until) {
+  const out = [];
+  for (let t = from; t <= until; t += S) out.push(tick(t, t - lastInput));
+  return out;
+}
+
 test('first input starts a segment at last-input time', () => {
   const { state, effects } = run([tick(10 * S, 2 * S)]);
   assert.equal(state.phase, 'working');
@@ -80,15 +87,15 @@ test('saved idle segment never ends before it starts', () => {
 });
 
 test('idle 3 minutes during working ends segment at last input', () => {
-  const working = run([tick(0, 0)]).state;
-  const { state, effects } = run([tick(13 * M, 3 * M)], working);
+  const working = run(ticksActive(0, 10 * M)).state;
+  const { state, effects } = run(ticksIdleSince(10 * M, 10 * M + S, 13 * M), working);
   assert.equal(state.phase, 'away');
   assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
 });
 
 test('idle 2.5 minutes keeps counting', () => {
-  const working = run([tick(0, 0)]).state;
-  const { state, effects } = run([tick(12 * M, 2.5 * M)], working);
+  const working = run(ticksActive(0, 9.5 * M)).state;
+  const { state, effects } = run(ticksIdleSince(9.5 * M, 9.5 * M + S, 12 * M), working);
   assert.equal(state.phase, 'working');
   assert.equal(state.segStart, 0);
   assert.deepEqual(effects, []);
@@ -218,4 +225,21 @@ test('quit during meeting saves meeting; quit while locked unlocks', () => {
   assert.deepEqual(run([{ type: 'quit', now: 5 * M }], meeting).effects, [{ type: 'saveMeeting', startedAt: 0, endedAt: 5 * M }]);
   const locked = run(ticksActive(0, 32 * M)).state;
   assert.deepEqual(types(run([{ type: 'quit', now: 33 * M }], locked).effects), ['unlock']);
+});
+
+test('tick after a long gap without resume ends segment as idle at last tick', () => {
+  // 睡眠醒來時 tick 可能比 resume 事件先到；喚醒用的按鍵讓 idleMs 接近 0
+  const reminder = run(ticksActive(0, 30 * M)).state;
+  const { state, effects } = run([tick(90 * M, 0)], reminder);
+  assert.equal(state.phase, 'away');
+  assert.ok(!types(effects).includes('lock'));
+  assert.deepEqual(types(effects), ['hideReminder', 'saveSegment']);
+  assert.deepEqual(find(effects, 'saveSegment'), { type: 'saveSegment', startedAt: 0, endedAt: 30 * M, endReason: 'idle' });
+});
+
+test('tick after a long gap while working does not show the reminder', () => {
+  const working = run(ticksActive(0, 10 * M)).state;
+  const { state, effects } = run([tick(70 * M, 0)], working);
+  assert.equal(state.phase, 'away');
+  assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
 });

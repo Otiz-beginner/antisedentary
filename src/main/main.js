@@ -78,15 +78,18 @@ function start() {
   const ticker = setInterval(controller.tick, config.tickMs);
   controller.tick();
 
-  let quitting = false;
-  app.on('before-quit', () => {
-    if (quitting) return;
-    quitting = true;
+  // 程式結束、或 Windows 關機/登出（不會觸發 before-quit）時，把進行中的段落和開會紀錄存起來
+  let closed = false;
+  const shutdown = () => {
+    if (closed) return;
+    closed = true;
     clearInterval(ticker);
-    controller.dispatch({ type: 'quit', now: Date.now() });
+    controller.quit();
     globalShortcut.unregisterAll();
     db.close();
-  });
+  };
+  app.on('before-quit', shutdown);
+  windows.onSessionEnd(shutdown);
 
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true });
 }

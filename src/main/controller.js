@@ -7,6 +7,7 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   let state = initialState();
   let draft = '';
   let lockHandle = null;
+  let quitted = false;
 
   function run(effect) {
     switch (effect.type) {
@@ -63,7 +64,13 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   return {
     tick: () => dispatch({ type: 'tick', now: now(), idleMs: getIdleMs() }),
     dispatch,
-    setDraftNote: (text) => { draft = String(text ?? ''); },
+    // 只有提醒卡出現時才收草稿：存檔後才晚到的草稿不能跑進下一段
+    setDraftNote: (text) => { if (state.phase === 'reminder') draft = String(text ?? ''); },
+    quit() {
+      if (quitted) return;
+      quitted = true;
+      dispatch({ type: 'quit', now: now() });
+    },
     get phase() { return state.phase; },
     get inMeeting() { return state.phase === 'meeting'; },
   };
