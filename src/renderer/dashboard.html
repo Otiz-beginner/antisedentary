@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>紀錄</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<main>
+  <h1>紀錄</h1>
+
+  <section class="stats">
+    <div class="panel stat"><div class="num" id="s-hours"></div><div class="lbl">總工作時間</div></div>
+    <div class="panel stat"><div class="num" id="s-count"></div><div class="lbl">工作段數</div></div>
+    <div class="panel stat"><div class="num" id="s-avg"></div><div class="lbl">平均每段</div></div>
+    <div class="panel stat"><div class="num" id="s-notes"></div><div class="lbl">有寫紀錄的段數</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="streaks">
+      <div class="stat"><div class="num" id="s-days"></div><div class="lbl">有工作的天數</div></div>
+      <div class="stat"><div class="num" id="s-cur"></div><div class="lbl">目前連續天數</div></div>
+      <div class="stat"><div class="num" id="s-max"></div><div class="lbl">最長連續天數</div></div>
+    </div>
+    <div class="heat-row">
+      <div class="labels"><span></span><span>日</span><span></span><span>二</span><span></span><span>四</span><span></span><span>六</span></div>
+      <div class="heat-wrap"><div class="heat" id="heat"></div></div>
+    </div>
+    <div class="legend">較少 <i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> 較多（一天的工作段數）</div>
+  </section>
+
+  <section class="panel day" id="day"></section>
+</main>
+<script src="../shared/stats.js"></script>
+<script src="../shared/dayView.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>

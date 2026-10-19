@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<title>休息一下</title>
+<link rel="stylesheet" href="water.css">
+<style>
+  /* 疊在 Windows 壓克力模糊上面的深色遮罩 */
+  html, body { background: rgba(46,58,85,.55); cursor: none; }
+  .card { right: 32px; bottom: 64px; width: 260px; }
+  .card[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <div class="card rest" id="card" role="status" aria-label="休息一下" hidden>
+    <div class="tank"></div>
+    <p class="phrase">休息一下</p>
+    <div class="clock" id="clock">3:00</div>
+  </div>
+  <script src="lock.js"></script>
+</body>
+</html>

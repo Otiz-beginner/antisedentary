@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<title>快到休息時間了</title>
+<link rel="stylesheet" href="water.css">
+<style>
+  .card { right: 10px; bottom: 10px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card" role="dialog" aria-label="快到休息時間了">
+    <div class="tank"></div>
+    <h3>快到休息時間了</h3>
+    <textarea id="note" placeholder="這段時間做了什麼？（可以不寫）"></textarea>
+    <div class="row"><button type="button" id="start">開始休息</button></div>
+  </div>
+  <script src="reminder.js"></script>
+</body>
+</html>

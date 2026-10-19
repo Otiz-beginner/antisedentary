@@ -56,13 +56,27 @@ test('unlocks after 3 minutes then waits for input', () => {
   assert.deepEqual(types(effects), ['unlock']);
 });
 
-test('segment after unlock never starts before unlock', () => {
+test('input from before unlock does not start a segment', () => {
   const locked = run(ticksActive(0, 32 * M)).state;
   const away = run([tick(35 * M, 3 * M)], locked).state;
-  // 鎖定中被吞掉的輸入讓系統閒置時間看起來很短
+  // 最後一次輸入在解鎖之前（鎖定中），不算回來工作
   const { state } = run([tick(35 * M + 2 * S, 10 * S)], away);
+  assert.equal(state.phase, 'away');
+});
+
+test('first input after unlock starts the segment at that input', () => {
+  const locked = run(ticksActive(0, 32 * M)).state;
+  const away = run([tick(35 * M, 3 * M)], locked).state;
+  const { state } = run([tick(35 * M + 5 * S, 1 * S)], away);
   assert.equal(state.phase, 'working');
-  assert.equal(state.segStart, 35 * M);
+  assert.equal(state.segStart, 35 * M + 4 * S);
+});
+
+test('saved idle segment never ends before it starts', () => {
+  const locked = run(ticksActive(0, 32 * M)).state;
+  const away = run([tick(35 * M, 3 * M)], locked).state;
+  const { effects } = run([tick(35 * M + 2 * S, 10 * S), tick(38 * M + 2 * S, 3 * M + 10 * S)], away);
+  for (const e of effects.filter((x) => x.type === 'saveSegment')) assert.ok(e.endedAt >= e.startedAt);
 });
 
 test('idle 3 minutes during working ends segment at last input', () => {

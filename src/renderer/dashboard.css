@@ -1,0 +1,64 @@
+/* 紀錄 dashboard（來自 mockup dashboard-v1.html，spec §6） */
+@import url("fonts/fonts.css");
+
+:root {
+  --mist: #7B9DC8; --slate: #BFC9DF; --water: #92C7FF; --lavender: #D3D5FF; --lilac: #D2BAFF;
+  --deep: #4E6FA0; --ink: #2E3A55; --ink-soft: #5A6886; --page: #EEF0F8; --empty: #E6E9F3;
+  --round: "Huninn", "Microsoft JhengHei", sans-serif;
+  --body: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--body); line-height: 1.6; }
+main { max-width: 1040px; margin: 0 auto; padding: 28px 16px 64px; }
+h1 { font-family: var(--round); font-weight: 400; font-size: 28px; margin: 0 0 18px; }
+
+.panel { background: #fff; border-radius: 22px 22px 22px 8px; padding: 20px 22px; border: 1px solid rgba(191,201,223,.6); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+.stat .num { white-space: nowrap; font-family: var(--round); font-size: 32px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .num small { font-family: var(--body); font-size: 13px; color: var(--ink-soft); margin: 0 4px 0 2px; }
+.stat .lbl { color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+
+.streaks { display: flex; gap: 48px; flex-wrap: wrap; margin-bottom: 18px; }
+.heat-row { display: flex; gap: 6px; }
+.labels { display: grid; grid-template-rows: 16px repeat(7, 16px); gap: 4px; font-size: 11px; color: #8C97B0; line-height: 16px; flex: none; }
+.heat-wrap { min-width: 0; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; scrollbar-color: var(--slate) transparent; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: 16px repeat(7, 16px); gap: 4px; width: max-content; }
+.heat .mon { font-size: 11px; color: #8C97B0; line-height: 16px; white-space: nowrap; overflow: visible; }
+.cell { width: 16px; height: 16px; border-radius: 4px; background: var(--empty); border: 0; padding: 0; cursor: pointer; }
+.cell.future { background: transparent; border: 1px dashed #D5DAE8; cursor: default; }
+.cell[data-l="1"], .legend .l1 { background: var(--lavender); }
+.cell[data-l="2"], .legend .l2 { background: var(--water); }
+.cell[data-l="3"], .legend .l3 { background: var(--mist); }
+.cell[data-l="4"], .legend .l4 { background: var(--deep); }
+.legend .l0 { background: var(--empty); }
+.cell:hover:not(.future) { outline: 2px solid var(--lilac); outline-offset: 1px; }
+.cell:focus-visible { outline: 3px solid var(--lilac); outline-offset: 1px; }
+.cell.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); margin-top: 12px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+.day { margin-top: 14px; }
+.day-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.day-head h2 { font-family: var(--round); font-weight: 400; font-size: 22px; margin: 0; }
+.day-head .sum { color: var(--ink-soft); font-size: 14px; }
+.track { position: relative; height: 28px; background: var(--page); border-radius: 8px; margin: 16px 0 4px; }
+.track b { position: absolute; top: 4px; bottom: 4px; border-radius: 5px; min-width: 2px;
+           background: linear-gradient(180deg, var(--water), var(--mist)); }
+.track b.meeting { background: var(--lilac); }
+.track-axis { position: relative; height: 16px; font-size: 11px; color: #8C97B0; }
+.track-axis span { position: absolute; transform: translateX(-50%); }
+.list { list-style: none; margin: 16px 0 0; padding: 0; }
+.list li { display: grid; grid-template-columns: 116px 1fr; gap: 14px; padding: 12px 0; border-top: 1px solid #EEF0F6; }
+.list .when { font-variant-numeric: tabular-nums; font-size: 14px; }
+.list .when small { display: block; color: var(--ink-soft); font-size: 12px; }
+.list .note { font-size: 14.5px; overflow-wrap: anywhere; }
+.list .note.empty { color: #9AA4BA; }
+.tag { display: inline-block; font-size: 11.5px; color: #6B55A8; background: rgba(210,186,255,.35);
+       border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 1px; }
+.none { color: var(--ink-soft); padding: 20px 0 6px; margin: 0; }
+
+@media (max-width: 720px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .streaks { gap: 28px; }
+  .list li { grid-template-columns: 1fr; gap: 2px; }
+}

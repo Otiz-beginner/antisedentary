@@ -20,11 +20,14 @@ function endSegment(state, endedAt, endReason) {
 
 function onTick(state, { now, idleMs }, config) {
   switch (state.phase) {
-    case 'away':
-      if (idleMs < config.idleResetMs) {
-        return { state: { phase: 'working', segStart: Math.max(now - idleMs, state.since) }, effects: [] };
+    case 'away': {
+      // 只有在進入 away 之後真的有輸入，才算回來工作（鎖定中被吞掉的輸入不算）
+      const lastInput = now - idleMs;
+      if (idleMs < config.idleResetMs && lastInput >= state.since) {
+        return { state: { phase: 'working', segStart: lastInput }, effects: [] };
       }
       return { state, effects: [] };
+    }
 
     case 'working':
     case 'reminder': {

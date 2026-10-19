@@ -1,0 +1,64 @@
+/* 提醒卡、鎖定卡、水杯（來自 mockup screens-v5.html，spec §7） */
+@import url("fonts/fonts.css");
+
+:root {
+  --mist: #7B9DC8;      /* 霧藍 */
+  --slate: #BFC9DF;     /* 灰藍 */
+  --water: #92C7FF;     /* 水藍 */
+  --lavender: #D3D5FF;  /* 淡薰衣草 */
+  --lilac: #D2BAFF;     /* 淡紫 */
+  --ink: #2E3A55;       /* 深色字 */
+  --ink-soft: #5A6886;
+  --round: "Huninn", "Microsoft JhengHei", sans-serif;
+  --body: "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
+             font-family: var(--body); color: var(--ink); line-height: 1.6; user-select: none; }
+
+/* ---------- 小卡片 ---------- */
+.card { position: absolute; width: 300px;
+        border-radius: 20px 20px 20px 6px; padding: 14px 16px 2px;
+        background: linear-gradient(160deg, #FFFFFF 0%, #F3F3FF 55%, var(--lavender) 140%);
+        border: 1px solid rgba(191,201,223,.9);
+        box-shadow: 0 6px 16px -8px rgba(46,58,85,.45);
+        overflow: hidden; font-size: 13px; }
+.card h3 { font-family: var(--round); font-weight: 400; font-size: 16px; margin: 0 0 8px; color: var(--ink); }
+.card textarea { width: 100%; height: 58px; resize: none; border: 1px solid var(--slate); border-radius: 10px;
+                 padding: 7px 9px; font: inherit; font-size: 12.5px; color: var(--ink);
+                 background: rgba(255,255,255,.72); user-select: text; }
+.card textarea::placeholder { color: #8C97B0; }
+.card textarea:focus { outline: none; border-color: var(--lilac); box-shadow: 0 0 0 3px rgba(210,186,255,.45); }
+.card .row { display: flex; justify-content: flex-end; margin: 8px 0 12px; }
+.card button { font: inherit; font-size: 12.5px; font-weight: 500; color: #fff; background: var(--mist);
+               border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.card button:hover { background: #6889B6; }
+.card button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+
+.card.rest { padding: 16px 18px 4px; }
+.card.rest .phrase { font-family: var(--round); font-size: 15px; color: var(--ink-soft); margin: 0; }
+.card.rest .clock { font-family: var(--round); font-size: 40px; line-height: 1.1; color: var(--ink);
+                    font-variant-numeric: tabular-nums; margin: 2px 0 12px; letter-spacing: .5px; }
+
+/* ---------- 水杯：整張卡片就是杯子，水在文字後面 ---------- */
+.card > *:not(.tank) { position: relative; z-index: 1; }
+.tank { position: absolute; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none;
+        height: calc(var(--level, 1) * 100%); transition: height 1s linear;
+        background: linear-gradient(180deg, rgba(146,199,255,.55), rgba(146,199,255,.8)); }
+.tank::before { content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 10px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='10' viewBox='0 0 60 10'%3E%3Cpath d='M0 5 Q15 0 30 5 T60 5 V10 H0Z' fill='%2392C7FF' fill-opacity='.55'/%3E%3Cpath d='M0 5 Q15 0 30 5 T60 5' fill='none' stroke='%23D2BAFF' stroke-width='1.8'/%3E%3C/svg%3E") repeat-x 0 0 / 60px 10px;
+        animation: flow 3.6s linear infinite; }
+.tank::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 8px; opacity: .6;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='8' viewBox='0 0 84 8'%3E%3Cpath d='M0 4 Q21 0 42 4 T84 4' fill='none' stroke='%23FFFFFF' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x 0 0 / 84px 8px;
+        animation: flow2 5.5s linear infinite; }
+@keyframes flow { to { background-position-x: -60px; } }
+@keyframes flow2 { to { background-position-x: 84px; } }
+
+/* 唯一的進場動畫：從右下角輕輕浮上來 */
+.card.enter { animation: rise 1.1s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tank::before, .tank::after { animation: none; }
+  .card.enter { animation: none; }
+}

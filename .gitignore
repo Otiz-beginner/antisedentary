@@ -2,3 +2,4 @@ node_modules/
 dist/
 .superpowers/
 resources/lockhelper.exe
+src/renderer/fonts/

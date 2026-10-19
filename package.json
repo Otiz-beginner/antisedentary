@@ -9,11 +9,15 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
-    "postinstall": "node node_modules/electron/install.js",
-    "build:helper": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-helper.ps1"
+    "postinstall": "node node_modules/electron/install.js && node scripts/copy-fonts.js",
+    "build:helper": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-helper.ps1",
+    "fonts": "node scripts/copy-fonts.js",
+    "prestart": "node scripts/copy-fonts.js"
   },
   "type": "commonjs",
   "devDependencies": {
+    "@fontsource/huninn": "^5.3.1",
+    "@fontsource/noto-sans-tc": "^5.3.1",
     "electron": "44.9.0",
     "electron-builder": "26.15.3"
   },
