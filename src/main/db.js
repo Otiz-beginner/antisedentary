@@ -25,7 +25,14 @@ function openDb(filePath) {
       ended_at INTEGER NOT NULL,
       host TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      json TEXT NOT NULL
+    );
   `);
+  const selectSettings = db.prepare('SELECT json FROM settings WHERE id = 1');
+  const upsertSettings = db.prepare(
+    'INSERT INTO settings (id, json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
 
   const insertSeg = db.prepare(
     'INSERT INTO segments (started_at, ended_at, end_reason, note, host) VALUES (?, ?, ?, ?, ?)');
@@ -46,6 +53,12 @@ function openDb(filePath) {
     },
     listSegments: () => selectSegs.all().map(plain),
     listMeetings: () => selectMeets.all().map(plain),
+    // 使用者在 dashboard 調的時間設定（只存有改過的欄位）
+    getSettings() {
+      const row = selectSettings.get();
+      return row ? JSON.parse(row.json) : {};
+    },
+    saveSettings: (settings) => { upsertSettings.run(JSON.stringify(settings)); },
     close: () => db.close(),
   };
 }

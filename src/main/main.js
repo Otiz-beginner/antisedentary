@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { app, globalShortcut, ipcMain, powerMonitor } = require('electron');
 const { getConfig } = require('../core/config');
+const { DEFAULTS, FIELDS, validate } = require('../core/settings');
 const { openDb } = require('./db');
 const { createController } = require('./controller');
 const { startInputLock } = require('./inputLock');
@@ -12,9 +13,15 @@ const { createTray } = require('./tray');
 
 const MEETING_HOTKEY = 'Control+Alt+Shift+M';
 
+// `Antisedentary.exe --quit`：請正在跑的那一個存好檔再結束（更新程式前用）
+const QUIT_FLAG = '--quit';
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
+} else if (process.argv.includes(QUIT_FLAG)) {
+  app.quit(); // 沒有正在跑的，什麼都不用做
 } else {
+  app.on('second-instance', (_e, argv) => { if (argv.includes(QUIT_FLAG)) app.quit(); });
   app.whenReady().then(start);
 }
 
@@ -25,8 +32,10 @@ function lockHelperPath() {
 }
 
 function start() {
-  const config = getConfig();
   const db = openDb(path.join(app.getPath('appData'), 'antisedentary', 'antisedentary.db'));
+  const stored = validate(db.getSettings());
+  let settings = stored.ok ? stored.value : { ...DEFAULTS };
+  let config = getConfig(process.env, settings);
   const windows = createWindows();
   let tray = null;
 
@@ -75,6 +84,16 @@ function start() {
     cycleMs: config.workMs + config.reminderMs,
     lockMs: config.lockMs,
   }));
+  ipcMain.handle('settings:get', () => ({ fields: FIELDS, values: settings, defaults: DEFAULTS }));
+  ipcMain.handle('settings:save', (_e, values) => {
+    const result = validate(values);
+    if (!result.ok) return { ok: false, errors: result.errors };
+    settings = result.value;
+    db.saveSettings(settings);
+    config = getConfig(process.env, settings);
+    controller.setConfig(config);
+    return { ok: true, values: settings };
+  });
 
   const suspend = () => controller.dispatch({ type: 'suspend', now: Date.now() });
   const resume = () => controller.dispatch({ type: 'resume', now: Date.now() });

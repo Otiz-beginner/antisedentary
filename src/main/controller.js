@@ -70,6 +70,8 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   return {
     tick: () => dispatch({ type: 'tick', now: now(), idleMs: getIdleMs() }),
     dispatch,
+    // 使用者在 dashboard 改了設定：之後的判斷都用新的時間
+    setConfig: (next) => { config = next; },
     // 回答「剛剛有站起來嗎？」
     answer: (stood) => dispatch({ type: 'answer', now: now(), stood: Boolean(stood) }),
     // 只有提醒卡出現時才收草稿：存檔後才晚到的草稿不能跑進下一段

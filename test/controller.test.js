@@ -186,3 +186,15 @@ test('question card shows on return and the answer hides it', () => {
   assert.deepEqual(calls.at(-1), ['hideQuestion']);
   assert.deepEqual(segments.map((s) => [s.startedAt, s.endedAt, s.endReason]), [[0, 10 * M, 'idle']]);
 });
+
+test('setConfig applies new timings to the running segment', () => {
+  const { ctl, calls, locks, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.setConfig({ ...config, workMs: 12 * M, reminderMs: 2 * M, lockMs: 5 * M });
+  advance(12 * M);
+  assert.deepEqual(calls.find((c) => c[0] === 'showReminder')[1], { startsAt: 12 * M, endsAt: 14 * M });
+  advance(14 * M);
+  assert.deepEqual(calls.find((c) => c[0] === 'showLock')[1], { startsAt: 14 * M, endsAt: 19 * M });
+  assert.equal(locks[0].opts.maxSeconds, 305);
+});

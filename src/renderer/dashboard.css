@@ -58,8 +58,37 @@ h1 { font-family: var(--round); font-weight: 400; font-size: 28px; margin: 0 0 1
 .none { color: var(--ink-soft); padding: 20px 0 6px; margin: 0; }
 
 /* ---------- 側欄：目前這一段的水杯 ---------- */
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 14px; align-items: start; }
+.layout { display: grid; grid-template-columns: 240px minmax(0, 1fr) 210px; gap: 14px; align-items: start; }
 .side { position: sticky; top: 16px; }
+
+/* ---------- 左側：設定 ---------- */
+.settings { position: sticky; top: 16px; padding: 18px 18px 14px; }
+.settings h2 { font-family: var(--round); font-weight: 400; font-size: 20px; margin: 0 0 10px; }
+.field { padding: 10px 0; border-top: 1px solid #EEF0F6; }
+.field:first-child { border-top: 0; padding-top: 0; }
+.field label { display: block; font-size: 14px; font-weight: 500; }
+.field .hint { display: block; font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin-top: 1px; }
+.field .input-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.field input { width: 76px; font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ink);
+               padding: 4px 8px; border: 1px solid var(--slate); border-radius: 8px; background: #fff; }
+.field input:focus { outline: none; border-color: var(--lilac); box-shadow: 0 0 0 3px rgba(210,186,255,.45); }
+.field input[aria-invalid="true"] { border-color: #C2577A; }
+.field .unit { font-size: 13px; color: var(--ink-soft); }
+.field .error { display: block; font-size: 12px; color: #A63A5E; margin-top: 4px; }
+.settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.settings-actions button { font: inherit; font-size: 13px; font-weight: 500; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.settings-actions .primary { color: #fff; background: var(--mist); border: 0; }
+.settings-actions .primary:hover { background: #6889B6; }
+.settings-actions .ghost { color: var(--mist); background: #fff; border: 1px solid var(--slate); }
+.settings-actions button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+.settings-status { min-height: 1.4em; font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 0; }
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 210px; }
+  .settings { position: static; grid-column: 1 / -1; order: 3; }
+  #settings-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); column-gap: 20px; }
+  .field:first-child { border-top: 1px solid #EEF0F6; padding-top: 10px; }
+}
 .cup { position: relative; height: 380px; overflow: hidden; border-radius: 22px 22px 22px 8px;
        background: linear-gradient(160deg, #FFFFFF 0%, #F3F3FF 55%, var(--lavender) 140%);
        border: 1px solid rgba(191,201,223,.9); }

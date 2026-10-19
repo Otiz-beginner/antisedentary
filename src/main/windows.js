@@ -115,7 +115,7 @@ function createWindows() {
       return;
     }
     dashboard = new BrowserWindow({
-      width: 1080, height: 800, minWidth: 420, minHeight: 480, title: '紀錄',
+      width: 1400, height: 860, minWidth: 420, minHeight: 480, title: '紀錄',
       backgroundColor: '#EEF0F8', autoHideMenuBar: true, show: false, webPreferences,
     });
     dashboard.setMenu(null);
@@ -132,7 +132,10 @@ function createWindows() {
     ensureReminder().on('session-end', fn);
   }
 
-  return { showReminder, hideReminder, showQuestion, hideQuestion, showLock, hideLock, openDashboard, onSessionEnd };
+  return {
+    showReminder, hideReminder, showQuestion, hideQuestion, showLock, hideLock, openDashboard,
+    onSessionEnd,
+  };
 }
 
 module.exports = { createWindows };

@@ -59,3 +59,16 @@ test('data survives reopen', () => {
   assert.equal(again.listSegments().length, 1);
   again.close();
 });
+
+test('settings start empty and round-trip through the database', () => {
+  const file = tmpFile();
+  const db = openDb(file);
+  assert.deepEqual(db.getSettings(), {});
+  db.saveSettings({ cycleMinutes: 45, restMinutes: 5 });
+  db.close();
+  const again = openDb(file);
+  assert.deepEqual(again.getSettings(), { cycleMinutes: 45, restMinutes: 5 });
+  again.saveSettings({ cycleMinutes: 50 });
+  assert.deepEqual(again.getSettings(), { cycleMinutes: 50 });
+  again.close();
+});

@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('api', {
   // dashboard
   getRecords: () => ipcRenderer.invoke('records:get'),
   getStatus: () => ipcRenderer.invoke('status:get'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  saveSettings: (values) => ipcRenderer.invoke('settings:save', values),
 });

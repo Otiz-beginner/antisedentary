@@ -12,6 +12,18 @@
   <h1>紀錄</h1>
 
   <div class="layout">
+  <aside class="settings panel" aria-labelledby="settings-title">
+    <h2 id="settings-title">設定</h2>
+    <form id="settings-form" novalidate>
+      <div id="settings-fields"></div>
+      <div class="settings-actions">
+        <button type="submit" class="primary">儲存設定</button>
+        <button type="button" id="settings-reset" class="ghost">恢復預設</button>
+      </div>
+      <p class="settings-status" id="settings-status" role="status"></p>
+    </form>
+  </aside>
+
   <div class="content">
   <section class="stats">
     <div class="panel stat"><div class="num" id="s-hours"></div><div class="lbl">總工作時間</div></div>

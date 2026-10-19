@@ -121,7 +121,59 @@ async function updateCup() {
   $('cup-unit').textContent = v.unit;
 }
 
+// 左側設定：欄位、範圍、說明都由 main 提供，存檔前由 main 再驗證一次
+let settingsDefaults = {};
+
+function renderSettings(fields, values) {
+  $('settings-fields').innerHTML = fields.map((f) => `
+    <div class="field">
+      <label for="set-${f.key}">${f.label}</label>
+      <span class="hint" id="hint-${f.key}">${f.hint}</span>
+      <div class="input-row">
+        <input type="number" id="set-${f.key}" name="${f.key}" min="${f.min}" max="${f.max}" step="1"
+               value="${values[f.key]}" aria-describedby="hint-${f.key} err-${f.key}">
+        <span class="unit">${f.unit}</span>
+      </div>
+      <span class="error" id="err-${f.key}"></span>
+    </div>`).join('');
+}
+
+function showErrors(errors) {
+  document.querySelectorAll('#settings-fields input').forEach((input) => {
+    const msg = errors[input.name] || '';
+    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    $(`err-${input.name}`).textContent = msg;
+  });
+}
+
+async function loadSettings() {
+  const { fields, values, defaults } = await window.api.getSettings();
+  settingsDefaults = defaults;
+  renderSettings(fields, values);
+}
+
+$('settings-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const values = Object.fromEntries(new FormData(e.target).entries());
+  const result = await window.api.saveSettings(values);
+  if (result.ok) {
+    showErrors({});
+    $('settings-status').textContent = '已儲存，馬上生效';
+    updateCup();
+  } else {
+    showErrors(result.errors);
+    $('settings-status').textContent = '有欄位需要修正';
+  }
+});
+
+$('settings-reset').addEventListener('click', () => {
+  for (const [key, value] of Object.entries(settingsDefaults)) $(`set-${key}`).value = value;
+  showErrors({});
+  $('settings-status').textContent = '已填回預設值，按「儲存設定」才會生效';
+});
+
 load();
+loadSettings();
 updateCup();
 setInterval(updateCup, 1000);
 window.addEventListener('focus', load);
