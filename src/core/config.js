@@ -13,6 +13,8 @@ function getConfig(env = process.env) {
     lockMs: scale(3 * MINUTE),
     idleResetMs: scale(3 * MINUTE),
     shortIdleSegmentMs: scale(5 * MINUTE),
+    askMaxMs: scale(30 * MINUTE),   // 離開超過這麼久就不問「剛剛有站起來嗎？」，直接算休息
+    askTimeoutMs: scale(60 * 1000), // 問題卡沒人回答多久後，當作「還坐著」
     tickMs: Math.max(250, Math.min(1000, scale(1000))),
     speed,
   };

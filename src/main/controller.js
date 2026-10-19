@@ -17,6 +17,12 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
       case 'hideReminder':
         ui.hideReminder();
         break;
+      case 'showQuestion':
+        ui.showQuestion({ startsAt: effect.startsAt, endsAt: effect.endsAt });
+        break;
+      case 'hideQuestion':
+        ui.hideQuestion();
+        break;
       case 'saveSegment':
         db.insertSegment({
           startedAt: effect.startedAt,
@@ -64,6 +70,8 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   return {
     tick: () => dispatch({ type: 'tick', now: now(), idleMs: getIdleMs() }),
     dispatch,
+    // 回答「剛剛有站起來嗎？」
+    answer: (stood) => dispatch({ type: 'answer', now: now(), stood: Boolean(stood) }),
     // 只有提醒卡出現時才收草稿：存檔後才晚到的草稿不能跑進下一段
     setDraftNote: (text) => { if (state.phase === 'reminder') draft = String(text ?? ''); },
     quit() {
@@ -77,6 +85,7 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
       if (state.segStart !== undefined) s.segStart = state.segStart;
       if (state.lockUntil !== undefined) s.lockUntil = state.lockUntil;
       if (state.meetingStart !== undefined) s.meetingStart = state.meetingStart;
+      if (state.idleFrom !== undefined) s.idleFrom = state.idleFrom;
       s.now = now();
       return s;
     },

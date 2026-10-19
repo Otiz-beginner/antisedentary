@@ -11,6 +11,8 @@ test('default config uses spec minutes', () => {
   assert.equal(c.idleResetMs, 3 * 60000);
   assert.equal(c.shortIdleSegmentMs, 5 * 60000);
   assert.equal(c.tickMs, 1000);
+  assert.equal(c.askMaxMs, 30 * 60000);
+  assert.equal(c.askTimeoutMs, 60000);
   assert.equal(c.speed, 1);
 });
 

@@ -5,7 +5,7 @@ const { initialState, step } = require('../src/core/machine');
 
 const S = 1000;
 const M = 60 * S;
-const config = { workMs: 29 * M, reminderMs: 3 * M, lockMs: 3 * M, idleResetMs: 3 * M };
+const config = { workMs: 29 * M, reminderMs: 3 * M, lockMs: 3 * M, idleResetMs: 3 * M, askMaxMs: 30 * M, askTimeoutMs: 60 * S };
 
 function run(inputs, state = initialState()) {
   const effects = [];
@@ -86,11 +86,13 @@ test('saved idle segment never ends before it starts', () => {
   for (const e of effects.filter((x) => x.type === 'saveSegment')) assert.ok(e.endedAt >= e.startedAt);
 });
 
-test('idle 3 minutes during working ends segment at last input', () => {
+test('idle 3 minutes during working pauses without saving', () => {
   const working = run(ticksActive(0, 10 * M)).state;
   const { state, effects } = run(ticksIdleSince(10 * M, 10 * M + S, 13 * M), working);
-  assert.equal(state.phase, 'away');
-  assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
+  assert.equal(state.phase, 'paused');
+  assert.equal(state.segStart, 0);
+  assert.equal(state.idleFrom, 10 * M);
+  assert.deepEqual(effects, []);
 });
 
 test('idle 2.5 minutes keeps counting', () => {
@@ -101,21 +103,125 @@ test('idle 2.5 minutes keeps counting', () => {
   assert.deepEqual(effects, []);
 });
 
-test('idle reaching 3 minutes during reminder hides card, no lock', () => {
+test('idle reaching 3 minutes during reminder hides card and pauses, no lock', () => {
   const reminder = run(ticksActive(0, 29 * M)).state;
   const { state, effects } = run([tick(31.5 * M, 3 * M)], reminder);
-  assert.equal(state.phase, 'away');
-  assert.deepEqual(types(effects), ['hideReminder', 'saveSegment']);
-  assert.equal(find(effects, 'saveSegment').endedAt, 28.5 * M);
-  assert.equal(find(effects, 'saveSegment').endReason, 'idle');
+  assert.equal(state.phase, 'paused');
+  assert.equal(state.idleFrom, 28.5 * M);
+  assert.deepEqual(types(effects), ['hideReminder']);
 });
 
 test('idle wins when idle and timeout coincide', () => {
   const reminder = run(ticksActive(0, 29 * M)).state;
-  const { state, effects } = run([tick(32 * M, 3 * M)], reminder);
-  assert.equal(state.phase, 'away');
+  const { state, effects } = run(ticksIdleSince(29 * M, 29 * M + S, 32 * M), reminder);
+  assert.equal(state.phase, 'paused');
   assert.ok(!types(effects).includes('lock'));
-  assert.equal(find(effects, 'saveSegment').endReason, 'idle');
+});
+
+test('paused never reminds or locks', () => {
+  const working = run(ticksActive(0, 20 * M)).state;
+  const { state, effects } = run(ticksIdleSince(20 * M, 20 * M + S, 45 * M), working);
+  assert.equal(state.phase, 'paused');
+  assert.deepEqual(effects, []);
+});
+
+// 10 分鐘開始離開，14 分鐘時已經暫停
+const pausedAt14 = () => run(ticksIdleSince(10 * M, 10 * M + S, 14 * M), run(ticksActive(0, 10 * M)).state).state;
+
+test('returning within 30 minutes asks and keeps counting', () => {
+  const { state, effects } = run([tick(15 * M, 0)], pausedAt14());
+  assert.equal(state.phase, 'working');
+  assert.equal(state.segStart, 0);
+  assert.deepEqual(effects, [{ type: 'showQuestion', startsAt: 15 * M, endsAt: 16 * M }]);
+});
+
+test('answering stood up saves the idle segment and restarts at the return', () => {
+  const asking = run([tick(15 * M, 0)], pausedAt14()).state;
+  const { state, effects } = run([{ type: 'answer', now: 15 * M + 5 * S, stood: true }], asking);
+  assert.deepEqual(effects, [
+    { type: 'hideQuestion' },
+    { type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' },
+  ]);
+  assert.equal(state.phase, 'working');
+  assert.equal(state.segStart, 15 * M);
+  assert.equal(state.ask, undefined);
+});
+
+test('answering still sitting keeps the segment going', () => {
+  const asking = run([tick(15 * M, 0)], pausedAt14()).state;
+  const { state, effects } = run([{ type: 'answer', now: 15 * M + 5 * S, stood: false }], asking);
+  assert.deepEqual(effects, [{ type: 'hideQuestion' }]);
+  assert.equal(state.segStart, 0);
+  assert.equal(state.ask, undefined);
+});
+
+test('no answer within a minute counts as still sitting', () => {
+  const asking = run([tick(15 * M, 0)], pausedAt14()).state;
+  const { state, effects } = run(ticksActive(15 * M + S, 16 * M), asking);
+  assert.deepEqual(effects, [{ type: 'hideQuestion' }]);
+  assert.equal(state.segStart, 0);
+  assert.equal(state.ask, undefined);
+});
+
+test('answer when no question is showing is ignored', () => {
+  const working = run(ticksActive(0, 5 * M)).state;
+  const { state, effects } = run([{ type: 'answer', now: 5 * M, stood: true }], working);
+  assert.deepEqual(state, working);
+  assert.deepEqual(effects, []);
+});
+
+test('sitting through past 32 minutes gets a full reminder instead of an instant lock', () => {
+  const paused = run(ticksIdleSince(28 * M, 28 * M + S, 33 * M), run(ticksActive(0, 28 * M)).state).state;
+  const asking = run([tick(33 * M, 0)], paused).state;
+  // 問題卡還在的時候不提醒
+  const during = run(ticksActive(33 * M + S, 33 * M + 30 * S), asking);
+  assert.ok(!types(during.effects).includes('showReminder'));
+  const sitting = run([{ type: 'answer', now: 33.5 * M, stood: false }], during.state).state;
+  const { state, effects } = run([tick(33.5 * M + S, 0)], sitting);
+  assert.equal(state.phase, 'reminder');
+  assert.deepEqual(effects, [{ type: 'showReminder', startsAt: 33.5 * M + S, endsAt: 36.5 * M + S }]);
+  const later = run(ticksActive(33.5 * M + 2 * S, 36.5 * M), state);
+  assert.equal(later.state.phase, 'reminder');
+  assert.equal(run([tick(36.5 * M + S, 0)], later.state).state.phase, 'locked');
+});
+
+test('paused for 30 minutes counts as a break without asking', () => {
+  const working = run(ticksActive(0, 10 * M)).state;
+  const { state, effects } = run(ticksIdleSince(10 * M, 10 * M + S, 40 * M), working);
+  assert.equal(state.phase, 'away');
+  assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
+  const back = run([tick(40 * M + S, 0)], state);
+  assert.equal(back.state.phase, 'working');
+  assert.ok(!types(back.effects).includes('showQuestion'));
+});
+
+test('meetingOn while paused saves the segment ending when you left', () => {
+  const { state, effects } = run([{ type: 'meetingOn', now: 14 * M }], pausedAt14());
+  assert.equal(state.phase, 'meeting');
+  assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'meeting' }]);
+});
+
+test('meetingOn while the question shows hides it and saves', () => {
+  const asking = run([tick(15 * M, 0)], pausedAt14()).state;
+  const { effects } = run([{ type: 'meetingOn', now: 15 * M + S }], asking);
+  assert.deepEqual(types(effects), ['hideQuestion', 'saveSegment']);
+});
+
+test('tray break while paused saves the segment ending when you left and locks', () => {
+  const { state, effects } = run([{ type: 'startBreak', now: 14 * M, source: 'tray' }], pausedAt14());
+  assert.equal(state.phase, 'locked');
+  assert.deepEqual(effects[0], { type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'tray' });
+});
+
+test('quit while paused saves the segment ending when you left', () => {
+  assert.deepEqual(run([{ type: 'quit', now: 14 * M }], pausedAt14()).effects,
+    [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'quit' }]);
+});
+
+test('sleep while paused ends the segment as idle when you left', () => {
+  const { state, effects } = run([tick(60 * M, 0)], pausedAt14());
+  assert.equal(find(effects, 'saveSegment').endedAt, 10 * M);
+  assert.equal(state.phase, 'away');
 });
 
 test('card startBreak locks immediately with reason card', () => {

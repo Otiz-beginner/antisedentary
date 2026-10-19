@@ -160,3 +160,29 @@ test('status reports the current phase, segment start and clock', () => {
   advance(33 * M);
   assert.deepEqual(ctl.status(), { phase: 'locked', lockUntil: 32 * M + 5 * S + 3 * M, now: 33 * M });
 });
+
+test('question card shows on return and the answer hides it', () => {
+  const calls = [];
+  const clock = { t: 0, idle: 0 };
+  const segments = [];
+  const ctl = createController({
+    config: { ...config, askMaxMs: 30 * M, askTimeoutMs: 60 * S },
+    db: { insertSegment: (s) => segments.push(s), insertMeeting() {} },
+    ui: {
+      showReminder() {}, hideReminder() {}, showLock() {}, hideLock() {}, setMeetingIndicator() {},
+      showQuestion: (a) => calls.push(['showQuestion', a]),
+      hideQuestion: () => calls.push(['hideQuestion']),
+    },
+    startLock: () => ({ stop() {} }), host: 'pc', now: () => clock.t, getIdleMs: () => clock.idle,
+  });
+  ctl.tick();
+  while (clock.t < 10 * M) { clock.t += S; ctl.tick(); }
+  while (clock.t < 14 * M) { clock.t += S; clock.idle = clock.t - 10 * M; ctl.tick(); }
+  assert.equal(ctl.status().phase, 'paused');
+  assert.equal(ctl.status().idleFrom, 10 * M);
+  clock.t += S; clock.idle = 0; ctl.tick();
+  assert.deepEqual(calls, [['showQuestion', { startsAt: 14 * M + S, endsAt: 15 * M + S }]]);
+  ctl.answer(true);
+  assert.deepEqual(calls.at(-1), ['hideQuestion']);
+  assert.deepEqual(segments.map((s) => [s.startedAt, s.endedAt, s.endReason]), [[0, 10 * M, 'idle']]);
+});

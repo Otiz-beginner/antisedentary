@@ -18,6 +18,10 @@
       const ms = Math.max(0, now - status.segStart);
       return { label: '這一段已經工作', ...elapsedText(ms), level: clamp01(ms / cycleMs), tone: 'work' };
     }
+    if (phase === 'paused') {
+      const ms = Math.max(0, status.idleFrom - status.segStart);
+      return { label: '暫停計時', ...elapsedText(ms), level: clamp01(ms / cycleMs), tone: 'paused' };
+    }
     if (phase === 'locked') {
       const left = Math.max(0, status.lockUntil - now);
       const s = Math.ceil(left / 1000);

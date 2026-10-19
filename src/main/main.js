@@ -39,6 +39,8 @@ function start() {
     ui: {
       showReminder: windows.showReminder,
       hideReminder: windows.hideReminder,
+      showQuestion: windows.showQuestion,
+      hideQuestion: windows.hideQuestion,
       showLock: windows.showLock,
       hideLock: windows.hideLock,
       setMeetingIndicator: (on) => tray && tray.setMeetingIndicator(on),
@@ -61,6 +63,7 @@ function start() {
 
   ipcMain.on('note:update', (_e, text) => controller.setDraftNote(text));
   ipcMain.on('break:start', () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'card' }));
+  ipcMain.on('question:answer', (_e, stood) => controller.answer(stood));
   ipcMain.handle('records:get', () => ({
     segments: db.listSegments(),
     meetings: db.listMeetings(),

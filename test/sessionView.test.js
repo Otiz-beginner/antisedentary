@@ -48,3 +48,12 @@ test('away shows not counting yet', () => {
   assert.equal(v.value, '');
   assert.equal(v.level, 0);
 });
+
+test('paused shows the time worked before you left', () => {
+  const v = sessionView({ phase: 'paused', segStart: 0, idleFrom: 10 * M, now: 14 * M }, limits);
+  assert.equal(v.label, '暫停計時');
+  assert.equal(v.value, '10');
+  assert.equal(v.unit, '分');
+  assert.equal(v.level, 10 / 32);
+  assert.equal(v.tone, 'paused');
+});
