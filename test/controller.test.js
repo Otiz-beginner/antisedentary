@@ -150,3 +150,13 @@ test('quit is idempotent', () => {
   assert.equal(segments.length, 1);
   assert.equal(segments[0].endReason, 'quit');
 });
+
+test('status reports the current phase, segment start and clock', () => {
+  const { ctl, clock, advance } = setup();
+  clock.t = 5 * S;
+  ctl.tick();
+  advance(10 * M);
+  assert.deepEqual(ctl.status(), { phase: 'working', segStart: 5 * S, now: 10 * M });
+  advance(33 * M);
+  assert.deepEqual(ctl.status(), { phase: 'locked', lockUntil: 32 * M + 5 * S + 3 * M, now: 33 * M });
+});

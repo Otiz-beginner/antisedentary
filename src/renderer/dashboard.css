@@ -9,7 +9,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--body); line-height: 1.6; }
-main { max-width: 1040px; margin: 0 auto; padding: 28px 16px 64px; }
+main { max-width: 1280px; margin: 0 auto; padding: 28px 16px 64px; }
 h1 { font-family: var(--round); font-weight: 400; font-size: 28px; margin: 0 0 18px; }
 
 .panel { background: #fff; border-radius: 22px 22px 22px 8px; padding: 20px 22px; border: 1px solid rgba(191,201,223,.6); }
@@ -56,6 +56,38 @@ h1 { font-family: var(--round); font-weight: 400; font-size: 28px; margin: 0 0 1
 .tag { display: inline-block; font-size: 11.5px; color: #6B55A8; background: rgba(210,186,255,.35);
        border-radius: 999px; padding: 0 8px; margin-left: 6px; vertical-align: 1px; }
 .none { color: var(--ink-soft); padding: 20px 0 6px; margin: 0; }
+
+/* ---------- 側欄：目前這一段的水杯 ---------- */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 14px; align-items: start; }
+.side { position: sticky; top: 16px; }
+.cup { position: relative; height: 380px; overflow: hidden; border-radius: 22px 22px 22px 8px;
+       background: linear-gradient(160deg, #FFFFFF 0%, #F3F3FF 55%, var(--lavender) 140%);
+       border: 1px solid rgba(191,201,223,.9); }
+.cup[data-tone="meeting"] { background: linear-gradient(160deg, #FFFFFF 0%, #F6F0FF 50%, var(--lilac) 160%); }
+.cup-text { position: relative; z-index: 1; padding: 20px 20px 0; }
+.cup-label { margin: 0; font-family: var(--round); font-size: 15px; color: var(--ink-soft); }
+.cup-value { margin: 2px 0 0; font-family: var(--round); font-size: 44px; line-height: 1.1; color: var(--ink);
+             font-variant-numeric: tabular-nums; }
+.cup-value small { font-family: var(--body); font-size: 15px; color: var(--ink-soft); margin-left: 4px; }
+.cup .tank { position: absolute; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none;
+             height: calc(var(--level, 0) * 100%); transition: height 1s linear;
+             background: linear-gradient(180deg, rgba(146,199,255,.55), rgba(146,199,255,.8)); }
+.cup .tank::before { content: ""; position: absolute; left: 0; right: 0; top: -9px; height: 10px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='10' viewBox='0 0 60 10'%3E%3Cpath d='M0 5 Q15 0 30 5 T60 5 V10 H0Z' fill='%2392C7FF' fill-opacity='.55'/%3E%3Cpath d='M0 5 Q15 0 30 5 T60 5' fill='none' stroke='%23D2BAFF' stroke-width='1.8'/%3E%3C/svg%3E") repeat-x 0 0 / 60px 10px;
+        animation: flow 3.6s linear infinite; }
+.cup .tank::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 8px; opacity: .6;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='8' viewBox='0 0 84 8'%3E%3Cpath d='M0 4 Q21 0 42 4 T84 4' fill='none' stroke='%23FFFFFF' stroke-width='1.4'/%3E%3C/svg%3E") repeat-x 0 0 / 84px 8px;
+        animation: flow2 5.5s linear infinite; }
+@keyframes flow { to { background-position-x: -60px; } }
+@keyframes flow2 { to { background-position-x: 84px; } }
+@media (prefers-reduced-motion: reduce) {
+  .cup .tank::before, .cup .tank::after { animation: none; }
+}
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .side { position: static; order: -1; }
+  .cup { height: 150px; }
+}
 
 @media (max-width: 720px) {
   .stats { grid-template-columns: repeat(2, 1fr); }

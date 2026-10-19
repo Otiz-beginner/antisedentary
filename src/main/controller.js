@@ -71,6 +71,15 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
       quitted = true;
       dispatch({ type: 'quit', now: now() });
     },
+    // 給 dashboard 側欄用的目前狀態
+    status() {
+      const s = { phase: state.phase };
+      if (state.segStart !== undefined) s.segStart = state.segStart;
+      if (state.lockUntil !== undefined) s.lockUntil = state.lockUntil;
+      if (state.meetingStart !== undefined) s.meetingStart = state.meetingStart;
+      s.now = now();
+      return s;
+    },
     get phase() { return state.phase; },
     get inMeeting() { return state.phase === 'meeting'; },
   };

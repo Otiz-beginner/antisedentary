@@ -67,6 +67,11 @@ function start() {
     now: Date.now(),
     shortIdleSegmentMs: config.shortIdleSegmentMs,
   }));
+  ipcMain.handle('status:get', () => ({
+    status: controller.status(),
+    cycleMs: config.workMs + config.reminderMs,
+    lockMs: config.lockMs,
+  }));
 
   const suspend = () => controller.dispatch({ type: 'suspend', now: Date.now() });
   const resume = () => controller.dispatch({ type: 'resume', now: Date.now() });

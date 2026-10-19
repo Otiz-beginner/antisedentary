@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('api', {
   onLock: (cb) => ipcRenderer.on('lock:show', (_e, data) => cb(data)),
   // dashboard
   getRecords: () => ipcRenderer.invoke('records:get'),
+  getStatus: () => ipcRenderer.invoke('status:get'),
 });

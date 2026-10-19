@@ -109,5 +109,19 @@ async function load() {
   showDay(selected || today);
 }
 
+// 側欄水杯：每秒更新目前這一段
+async function updateCup() {
+  const { status, cycleMs, lockMs } = await window.api.getStatus();
+  const v = window.SessionView.sessionView(status, { cycleMs, lockMs });
+  const cup = $('cup');
+  cup.dataset.tone = v.tone;
+  cup.style.setProperty('--level', v.level);
+  $('cup-label').textContent = v.label;
+  $('cup-value').textContent = v.value;
+  $('cup-unit').textContent = v.unit;
+}
+
 load();
+updateCup();
+setInterval(updateCup, 1000);
 window.addEventListener('focus', load);

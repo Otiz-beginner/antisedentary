@@ -11,6 +11,8 @@
 <main>
   <h1>紀錄</h1>
 
+  <div class="layout">
+  <div class="content">
   <section class="stats">
     <div class="panel stat"><div class="num" id="s-hours"></div><div class="lbl">總工作時間</div></div>
     <div class="panel stat"><div class="num" id="s-count"></div><div class="lbl">工作段數</div></div>
@@ -32,9 +34,22 @@
   </section>
 
   <section class="panel day" id="day"></section>
+  </div>
+
+  <aside class="side" aria-live="polite">
+    <div class="cup" id="cup" data-tone="away">
+      <div class="tank"></div>
+      <div class="cup-text">
+        <p class="cup-label" id="cup-label">還沒開始計時</p>
+        <p class="cup-value"><span id="cup-value"></span><small id="cup-unit"></small></p>
+      </div>
+    </div>
+  </aside>
+  </div>
 </main>
 <script src="../shared/stats.js"></script>
 <script src="../shared/dayView.js"></script>
+<script src="../shared/sessionView.js"></script>
 <script src="dashboard.js"></script>
 </body>
 </html>
