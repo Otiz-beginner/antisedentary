@@ -6,9 +6,14 @@
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
   const pad = (n) => String(n).padStart(2, '0');
   const hm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
-  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray' || s.endReason === 'dashboard';
+  // 提早休息：自己按休息（提醒卡、系統匣、紀錄頁），而且是在提醒卡該出現之前。
+  // 提醒卡出現後才按、或坐超過時間才休息，都不算提早。
+  const BREAK_REASONS = ['card', 'tray', 'dashboard'];
+  const DEFAULT_EARLY_BEFORE_MS = 29 * 60000;
+  const isEarly = (s, earlyBeforeMs = DEFAULT_EARLY_BEFORE_MS) =>
+    BREAK_REASONS.includes(s.endReason) && s.endedAt - s.startedAt < earlyBeforeMs;
 
-  function renderDayList(segments) {
+  function renderDayList(segments, { earlyBeforeMs } = {}) {
     if (!segments.length) return '<p class="none">這天沒有紀錄。</p>';
     const items = segments.map((s, i) => {
       const minutes = Math.round((s.endedAt - s.startedAt) / 60000);
@@ -17,7 +22,7 @@
         : '<div class="note empty">沒有寫紀錄';
       let tag = '';
       if (s.endReason === 'focus') tag = '<span class="tag focus">Lock-in 專注</span>';
-      else if (isEarly(s)) tag = '<span class="tag">提早休息</span>';
+      else if (isEarly(s, earlyBeforeMs)) tag = '<span class="tag">提早休息</span>';
       // 補寫或修改這一段的紀錄
       const edit = s.id === undefined ? ''
         : `<span class="seg-actions"><button type="button" class="edit-note" data-id="${Number(s.id)}">${s.note ? '修改' : '補寫'}</button>`

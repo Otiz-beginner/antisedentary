@@ -1,6 +1,6 @@
 {
   "name": "antisedentary",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Antisedentary：防久坐小程式",
   "main": "src/main/main.js",
   "scripts": {

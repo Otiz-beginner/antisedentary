@@ -151,6 +151,8 @@ function start() {
     meetings: db.listMeetings(),
     now: Date.now(),
     shortIdleSegmentMs: config.shortIdleSegmentMs,
+    // 工作滿這麼久提醒卡就會出現；在這之前自己休息才算「提早休息」
+    earlyBeforeMs: config.workMs,
   }));
   ipcMain.handle('status:get', () => ({
     status: controller.status(),

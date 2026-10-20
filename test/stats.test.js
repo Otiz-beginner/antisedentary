@@ -68,7 +68,9 @@ test('meetingsOnDay filters by start day', () => {
   assert.deepEqual(Stats.meetingsOnDay(ms, '2026-10-04'), [ms[1]]);
 });
 
-test('isEarly true only for card and tray', () => {
-  assert.deepEqual(['card', 'tray', 'dashboard', 'timeout', 'idle', 'meeting', 'quit'].map((r) => Stats.isEarly({ endReason: r })),
+test('isEarly true only for breaks taken before the reminder would appear', () => {
+  const short = (endReason) => ({ endReason, startedAt: 0, endedAt: 10 * 60000 });
+  assert.deepEqual(['card', 'tray', 'dashboard', 'timeout', 'idle', 'meeting', 'quit'].map((r) => Stats.isEarly(short(r), 29 * 60000)),
     [true, true, true, false, false, false, false]);
+  assert.equal(Stats.isEarly({ endReason: 'card', startedAt: 0, endedAt: 30 * 60000 }, 29 * 60000), false);
 });

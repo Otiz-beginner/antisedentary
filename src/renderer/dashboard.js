@@ -12,6 +12,7 @@ const hm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(
 const startOfDay = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d; };
 
 let visible = [];
+let earlyBeforeMs; // 從 main 拿；在這之前自己休息才標「提早休息」
 let meetings = [];
 let selected = null; // 重新整理時保留目前看的那一天
 
@@ -99,12 +100,13 @@ function showDay(d) {
       <span class="sum">${segs.length} 段，共 ${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分</span></div>
     <div class="track">${meets.map(meetBar).join('')}${segs.map(segBar).join('')}</div>
     <div class="track-axis">${[8, 12, 16, 20, 24].map((h) => `<span style="left:${(h - 8) / 16 * 100}%">${h}:00</span>`).join('')}</div>
-    ${DayView.renderDayList(segs)}`;
+    ${DayView.renderDayList(segs, { earlyBeforeMs })}`;
 }
 
 async function load() {
   const data = await window.api.getRecords();
   visible = Stats.visibleSegments(data.segments, data.shortIdleSegmentMs);
+  earlyBeforeMs = data.earlyBeforeMs;
   meetings = data.meetings;
   const today = startOfDay(data.now);
   renderSummary(today);

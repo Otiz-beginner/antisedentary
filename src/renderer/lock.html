@@ -12,9 +12,9 @@
   .backdrop { position: fixed; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity .6s ease; }
   .backdrop.ready { opacity: 1; }
   /* 模糊時放大一點，邊緣才不會透出模糊後的淡邊 */
-  .backdrop.blur { filter: blur(28px) saturate(1.1); transform: scale(1.08); }
+  .backdrop.blur { filter: blur(12px) saturate(1.1); transform: scale(1.04); }
   .backdrop.wallpaper { background-image: url("rest-wallpaper.svg"); }
-  .shade { position: fixed; inset: 0; background: rgba(46,58,85,.38); }
+  .shade { position: fixed; inset: 0; background: rgba(46,58,85,.25); }
   .backdrop.wallpaper ~ .shade { background: rgba(46,58,85,.12); }
 
   /* 中央的大標語：POP 風格的粗字、白字加深色描邊與錯位陰影 */

@@ -28,11 +28,26 @@ test('empty note shows 沒有寫紀錄', () => {
   assert.ok(renderDayList([seg()]).includes('沒有寫紀錄'));
 });
 
-test('card and tray segments get 提早休息 tag', () => {
-  assert.ok(renderDayList([seg({ endReason: 'card' })]).includes('提早休息'));
-  assert.ok(renderDayList([seg({ endReason: 'tray' })]).includes('提早休息'));
-  assert.ok(renderDayList([seg({ endReason: 'dashboard' })]).includes('提早休息'));
-  assert.ok(!renderDayList([seg({ endReason: 'timeout' })]).includes('提早休息'));
+test('breaks taken before the reminder would appear get 提早休息 tag', () => {
+  const short = (endReason) => seg({ endReason, endedAt: t + 10 * M });
+  const opts = { earlyBeforeMs: 29 * M };
+  assert.ok(renderDayList([short('card')], opts).includes('提早休息'));
+  assert.ok(renderDayList([short('tray')], opts).includes('提早休息'));
+  assert.ok(renderDayList([short('dashboard')], opts).includes('提早休息'));
+  assert.ok(!renderDayList([short('timeout')], opts).includes('提早休息'));
+});
+
+test('a break taken after the reminder appeared is not early', () => {
+  const opts = { earlyBeforeMs: 29 * M };
+  // 提醒卡出現後按「開始休息」、或坐超過時間才從系統匣休息
+  assert.ok(!renderDayList([seg({ endReason: 'card', endedAt: t + 30 * M })], opts).includes('提早休息'));
+  assert.ok(!renderDayList([seg({ endReason: 'tray', endedAt: t + 45 * M })], opts).includes('提早休息'));
+  assert.ok(!renderDayList([seg({ endReason: 'dashboard', endedAt: t + 29 * M })], opts).includes('提早休息'));
+});
+
+test('without options the default 29 minute threshold is used', () => {
+  assert.ok(renderDayList([seg({ endReason: 'card', endedAt: t + 20 * M })]).includes('提早休息'));
+  assert.ok(!renderDayList([seg({ endReason: 'card', endedAt: t + 32 * M })]).includes('提早休息'));
 });
 
 test('no segments renders 這天沒有紀錄。', () => {

@@ -65,7 +65,12 @@
 
   const segmentsOnDay = (visible, key) => visible.filter((s) => dayKey(s.startedAt) === key);
   const meetingsOnDay = (meetings, key) => meetings.filter((m) => dayKey(m.startedAt) === key);
-  const isEarly = (s) => s.endReason === 'card' || s.endReason === 'tray' || s.endReason === 'dashboard';
+  // 提早休息：自己按休息（提醒卡、系統匣、紀錄頁），而且是在提醒卡該出現之前。
+  // 提醒卡出現後才按、或坐超過時間才休息，都不算提早。
+  const BREAK_REASONS = ['card', 'tray', 'dashboard'];
+  const DEFAULT_EARLY_BEFORE_MS = 29 * 60000;
+  const isEarly = (s, earlyBeforeMs = DEFAULT_EARLY_BEFORE_MS) =>
+    BREAK_REASONS.includes(s.endReason) && s.endedAt - s.startedAt < earlyBeforeMs;
 
   const api = { dayKey, visibleSegments, summarize, countsByDay, heatLevel, streaks, segmentsOnDay, meetingsOnDay, isEarly };
   if (typeof module !== 'undefined') module.exports = api;
