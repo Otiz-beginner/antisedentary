@@ -124,3 +124,20 @@ test('app state values are stored and survive reopen', () => {
   assert.equal(again.getState('tutorialSeen'), '2');
   again.close();
 });
+
+test('a segment note can be written later', () => {
+  const db = openDb(tmpFile());
+  const id = db.insertSegment(seg(1));
+  assert.equal(db.updateSegmentNote(id, '  補寫的內容\n第二行 '), true);
+  assert.equal(db.listSegments()[0].note, '補寫的內容\n第二行');
+  assert.equal(db.updateSegmentNote(9999, 'x'), false);
+  db.close();
+});
+
+test('a written note can be cleared', () => {
+  const db = openDb(tmpFile());
+  const id = db.insertSegment(seg(1, { note: 'old' }));
+  db.updateSegmentNote(id, '   ');
+  assert.equal(db.listSegments()[0].note, '');
+  db.close();
+});

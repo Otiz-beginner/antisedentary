@@ -8,7 +8,8 @@
 //   reminder 提醒卡出現中，lockAt 時鎖定
 //   paused   閒置滿 3 分鐘，暫停計時（不提醒、不鎖定），等你回來再問「剛剛有站起來嗎？」
 //   locked   鎖定休息中
-//   meeting  開會模式
+//   meeting   Lock-in 專注模式：沒有工作時長限制，不提醒、不鎖定
+//   focusWrap 結束專注後的收尾卡：寫下這段做了什麼，水退光就休息
 
 function initialState() {
   return { phase: 'away', since: 0 };
@@ -28,6 +29,13 @@ function endSegment(state, endedAt, endReason) {
   if (state.phase === 'reminder') effects.push({ type: 'hideReminder' });
   if (state.ask) effects.push({ type: 'hideQuestion' });
   effects.push(segment(state.segStart, endedAt, endReason));
+  return effects;
+}
+
+// 結束專注：存成一段 endReason 'focus'（筆記由 controller 附上），收尾卡若在就收起來
+function saveFocus(state, endedAt) {
+  const effects = state.phase === 'focusWrap' ? [{ type: 'hideReminder' }] : [];
+  effects.push(segment(state.focusStart ?? state.meetingStart, endedAt, 'focus'));
   return effects;
 }
 
@@ -69,7 +77,8 @@ function onTick(state, { now, idleMs }, config) {
         const effects = [];
         if (state.phase === 'reminder') effects.push({ type: 'hideReminder' });
         if (state.ask) effects.push({ type: 'hideQuestion' });
-        return { state: { phase: 'paused', segStart: state.segStart, idleFrom: lastInput }, effects };
+        // 閒置時間只精確到整秒，換算的「最後輸入」可能比這段開始還早一點點
+        return { state: { phase: 'paused', segStart: state.segStart, idleFrom: Math.max(lastInput, state.segStart) }, effects };
       }
       if (state.ask) {
         // 問題卡出現時不提醒；沒人回答就當作「還坐著」
@@ -99,7 +108,15 @@ function onTick(state, { now, idleMs }, config) {
       if (now >= state.lockUntil) return { state: away(now), effects: [{ type: 'unlock' }] };
       return { state, effects: [] };
 
-    default: // meeting：不提醒、不鎖定
+    case 'focusWrap':
+      // 人已經走了（或睡眠醒來）：存檔就好，不鎖一張空桌子
+      if (gap || idleMs >= config.idleResetMs) return { state: away(now), effects: saveFocus(state, state.focusEnd) };
+      if (now >= state.lockAt) {
+        return { state: lockFrom(now, config), effects: [...saveFocus(state, state.focusEnd), lockEffect(now, config)] };
+      }
+      return { state, effects: [] };
+
+    default: // meeting（Lock-in）：不提醒、不鎖定，沒有時長限制
       return { state, effects: [] };
   }
 }
@@ -111,7 +128,7 @@ function step(state, input, config) {
   switch (input.type) {
     case 'tick': {
       const out = onTick(state, input, config);
-      if (hasSegment(out.state)) out.state = { ...out.state, lastTickAt: now };
+      if (hasSegment(out.state) || out.state.phase === 'focusWrap') out.state = { ...out.state, lastTickAt: now };
       return out;
     }
 
@@ -131,11 +148,18 @@ function step(state, input, config) {
           effects: [...endSegment(state, segmentEnd(state, now), input.source), lockEffect(now, config)],
         };
       }
+      if (state.phase === 'focusWrap') {
+        return { state: lockFrom(now, config), effects: [...saveFocus(state, state.focusEnd), lockEffect(now, config)] };
+      }
       if (state.phase === 'away') return { state: lockFrom(now, config), effects: [lockEffect(now, config)] };
       return same;
 
     case 'meetingOn': {
       if (state.phase === 'meeting') return same;
+      // 收尾卡出現時又按了 Lock-in：回到同一段專注
+      if (state.phase === 'focusWrap') {
+        return { state: { phase: 'meeting', meetingStart: state.focusStart }, effects: [{ type: 'hideReminder' }] };
+      }
       const meeting = { phase: 'meeting', meetingStart: now };
       if (hasSegment(state)) return { state: meeting, effects: endSegment(state, segmentEnd(state, now), 'meeting') };
       if (state.phase === 'locked') return { state: meeting, effects: [{ type: 'unlock' }] };
@@ -147,9 +171,15 @@ function step(state, input, config) {
       if (state.phase !== 'locked') return same;
       return { state: away(now), effects: [{ type: 'unlock' }] };
 
-    case 'meetingOff':
+    case 'meetingOff': {
       if (state.phase !== 'meeting') return same;
-      return { state: away(now), effects: [{ type: 'saveMeeting', startedAt: state.meetingStart, endedAt: now }] };
+      // 結束專注：先給收尾卡寫筆記，水在收尾時間內退光就休息
+      const lockAt = now + config.reminderMs;
+      return {
+        state: { phase: 'focusWrap', focusStart: state.meetingStart, focusEnd: now, lockAt },
+        effects: [{ type: 'showReminder', startsAt: now, endsAt: lockAt, kind: 'focus' }],
+      };
+    }
 
     case 'suspend':
       return { state: { ...state, suspendAt: now }, effects: [] };
@@ -160,14 +190,16 @@ function step(state, input, config) {
       if (hasSegment(state) && now - suspendAt >= config.idleResetMs) {
         return { state: away(now), effects: endSegment(state, segmentEnd(state, suspendAt), 'idle') };
       }
+      if (state.phase === 'focusWrap' && now - suspendAt >= config.idleResetMs) {
+        return { state: away(now), effects: saveFocus(state, state.focusEnd) };
+      }
       return { state: rest, effects: [] };
     }
 
     case 'quit':
       if (hasSegment(state)) return { state, effects: endSegment(state, segmentEnd(state, now), 'quit') };
-      if (state.phase === 'meeting') {
-        return { state, effects: [{ type: 'saveMeeting', startedAt: state.meetingStart, endedAt: now }] };
-      }
+      if (state.phase === 'meeting') return { state, effects: saveFocus(state, now) };
+      if (state.phase === 'focusWrap') return { state, effects: saveFocus(state, state.focusEnd) };
       if (state.phase === 'locked') return { state, effects: [{ type: 'unlock' }] };
       return same;
 

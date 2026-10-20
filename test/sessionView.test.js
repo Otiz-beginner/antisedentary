@@ -35,11 +35,18 @@ test('locked shows rest time left with the cup refilling', () => {
   assert.equal(v.tone, 'rest');
 });
 
-test('meeting mode shows a meeting label', () => {
-  const v = sessionView({ phase: 'meeting', meetingStart: 0, now: 5 * M }, limits);
-  assert.equal(v.label, '開會模式');
+test('Lock-in shows how long you have been focusing', () => {
+  const v = sessionView({ phase: 'meeting', meetingStart: 0, now: 75 * M }, limits);
+  assert.equal(v.label, 'Lock-in 專注中');
+  assert.equal(v.value, '1:15');
   assert.equal(v.tone, 'meeting');
-  assert.equal(v.level, 0);
+  assert.equal(v.level, 1);
+});
+
+test('the Lock-in wrap-up shows a wrap-up label', () => {
+  const v = sessionView({ phase: 'focusWrap', now: 5 * M }, limits);
+  assert.equal(v.label, 'Lock-in 結束，收尾中');
+  assert.equal(v.tone, 'meeting');
 });
 
 test('away shows not counting yet', () => {

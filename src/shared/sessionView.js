@@ -30,7 +30,12 @@
         level: clamp01(1 - left / lockMs), tone: 'rest',
       };
     }
-    if (phase === 'meeting') return { label: '開會模式', value: '', unit: '', level: 0, tone: 'meeting' };
+    if (phase === 'meeting') {
+      // Lock-in 沒有時長限制：顯示已經專注多久
+      const ms = Math.max(0, now - status.meetingStart);
+      return { label: 'Lock-in 專注中', ...elapsedText(ms), level: clamp01(ms / cycleMs), tone: 'meeting' };
+    }
+    if (phase === 'focusWrap') return { label: 'Lock-in 結束，收尾中', value: '', unit: '', level: 0, tone: 'meeting' };
     return { label: '還沒開始計時', value: '', unit: '', level: 0, tone: 'away' };
   }
 

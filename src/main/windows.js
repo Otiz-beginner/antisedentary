@@ -126,6 +126,7 @@ function createWindows({ log = () => {} } = {}) {
     }
     tutorial = new BrowserWindow({
       width: 760, height: 580, center: true, resizable: false, maximizable: false, minimizable: false,
+      frame: false, roundedCorners: true, // 不用 Windows 的外框，右上角是自己畫的小圓 ×
       title: '使用教學', backgroundColor: '#EEF0F8', autoHideMenuBar: true, show: false, webPreferences,
     });
     tutorial.setMenu(null);

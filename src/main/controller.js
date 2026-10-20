@@ -10,11 +10,14 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   let quitted = false;
   // 鎖定中由 lockhelper 偵測的兩組快捷鍵（Windows virtual-key code），預設 M、E
   let hotkeys = { meetingVk: 0x4d, escapeVk: 0x45 };
+  // 用快捷鍵叫出的提早休息卡片（可以收起；到了提醒時間就變成正常提醒卡）
+  let earlyOpen = false;
 
   function run(effect) {
     switch (effect.type) {
       case 'showReminder':
-        ui.showReminder({ startsAt: effect.startsAt, endsAt: effect.endsAt });
+        // kind：'reminder' 正常提醒卡、'focus' Lock-in 結束的收尾卡（都不能收起）
+        ui.showReminder({ startsAt: effect.startsAt, endsAt: effect.endsAt, note: draft, kind: effect.kind || 'reminder' });
         break;
       case 'hideReminder':
         ui.hideReminder();
@@ -65,11 +68,42 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
 
   function dispatch(input) {
     const wasMeeting = state.phase === 'meeting';
+    const prevPhase = state.phase;
     const out = step(state, input, config);
     state = out.state;
     out.effects.forEach(run);
+    // 切換到休息、專注或還沒計時的那一刻，沒被存進任何一段的筆記就丟掉，不能跑進下一段
+    // （只在切換時清：還沒計時時打開提早休息卡打字，不會被每秒的 tick 洗掉）
+    if (state.phase !== prevPhase && ['locked', 'meeting', 'away'].includes(state.phase)) draft = '';
     const isMeeting = state.phase === 'meeting';
     if (isMeeting !== wasMeeting) ui.setMeetingIndicator(isMeeting);
+    // 提早休息卡片只在工作中存在：變成提醒卡就交給提醒卡，其他狀態就收起
+    if (earlyOpen && state.phase !== 'working') {
+      earlyOpen = false;
+      if (state.phase !== 'reminder') ui.hideReminder();
+    }
+  }
+
+  function closeEarlyCard() {
+    if (!earlyOpen) return;
+    earlyOpen = false;
+    ui.hideReminder();
+  }
+
+  // 提早休息快捷鍵：叫出或收起右下角卡片。水位跟提醒卡一樣以鎖定時間為準，
+  // 離鎖定還超過收尾時間就是滿的
+  function toggleEarlyCard() {
+    if (earlyOpen) { closeEarlyCard(); return; }
+    if (state.phase !== 'working' && state.phase !== 'away') return;
+    if (state.ask) return; // 「剛剛有站起來嗎？」還在，不要疊在它上面
+    const lockAt = state.phase === 'working' ? state.segStart + config.workMs + config.reminderMs : null;
+    earlyOpen = true;
+    ui.showReminder({
+      startsAt: lockAt === null ? null : lockAt - config.reminderMs,
+      endsAt: lockAt,
+      note: draft,
+      kind: 'early', // 可以收起
+    });
   }
 
   return {
@@ -79,7 +113,7 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
     breakNow(note = '') {
       if (String(note).trim()) draft = String(note);
       dispatch({ type: 'startBreak', now: now(), source: 'dashboard' });
-      draft = ''; // 沒被採用（例如開會中）也不能留到下一段
+      draft = ''; // 沒被採用（例如 Lock-in 專注中）也不能留到下一段
     },
     // 使用者在 dashboard 改了設定：之後的判斷都用新的時間
     setConfig: (next) => { config = next; },
@@ -87,7 +121,11 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
     // 回答「剛剛有站起來嗎？」
     answer: (stood) => dispatch({ type: 'answer', now: now(), stood: Boolean(stood) }),
     // 只有提醒卡出現時才收草稿：存檔後才晚到的草稿不能跑進下一段
-    setDraftNote: (text) => { if (state.phase === 'reminder') draft = String(text ?? ''); },
+    setDraftNote: (text) => {
+      if (state.phase === 'reminder' || state.phase === 'focusWrap' || earlyOpen) draft = String(text ?? '');
+    },
+    toggleEarlyCard,
+    closeEarlyCard,
     quit() {
       if (quitted) return;
       quitted = true;

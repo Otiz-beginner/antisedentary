@@ -10,13 +10,19 @@
 
   function renderDayList(segments) {
     if (!segments.length) return '<p class="none">這天沒有紀錄。</p>';
-    const items = segments.map((s) => {
+    const items = segments.map((s, i) => {
       const minutes = Math.round((s.endedAt - s.startedAt) / 60000);
       const note = s.note
         ? `<div class="note">${escapeHtml(s.note).replace(/\r?\n/g, '<br>')}`
         : '<div class="note empty">沒有寫紀錄';
-      const tag = isEarly(s) ? '<span class="tag">提早休息</span>' : '';
-      return `<li><div class="when">${hm(s.startedAt)}–${hm(s.endedAt)}<small>${minutes} 分鐘</small></div>${note}${tag}</div></li>`;
+      let tag = '';
+      if (s.endReason === 'focus') tag = '<span class="tag focus">Lock-in 專注</span>';
+      else if (isEarly(s)) tag = '<span class="tag">提早休息</span>';
+      // 補寫或修改這一段的紀錄
+      const edit = s.id === undefined ? ''
+        : `<button type="button" class="edit-note" data-id="${Number(s.id)}">${s.note ? '修改' : '補寫'}</button>`;
+      // id／data-i 讓時間軸上的區塊可以跳到這一段
+      return `<li id="seg-${i}" data-i="${i}" tabindex="-1"><div class="when">${hm(s.startedAt)}–${hm(s.endedAt)}<small>${minutes} 分鐘</small></div>${note}${tag}${edit}</div></li>`;
     });
     return `<ul class="list">${items.join('')}</ul>`;
   }

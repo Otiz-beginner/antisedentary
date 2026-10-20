@@ -101,18 +101,36 @@ function start() {
     onQuit: () => { log('quit from tray'); app.quit(); },
   });
 
-  // 開會模式快捷鍵（平常用 Electron 全域快捷鍵；鎖定中由 lockhelper 偵測）
+  // Lock-in 專注模式快捷鍵（平常用 Electron 全域快捷鍵；鎖定中由 lockhelper 偵測）
   let meetingAccelerator = null;
+  // 提早休息快捷鍵：叫出或收起右下角的卡片
+  let earlyAccelerator = null;
+  const toggleEarly = () => { log('early card hotkey', { phase: controller.phase }); controller.toggleEarlyCard(); };
   function applyHotkeys() {
     if (meetingAccelerator) globalShortcut.unregister(meetingAccelerator);
+    if (earlyAccelerator) globalShortcut.unregister(earlyAccelerator);
     meetingAccelerator = hotkeys.accelerator(settings.meetingKey);
+    earlyAccelerator = hotkeys.accelerator(settings.earlyKey);
     if (!globalShortcut.register(meetingAccelerator, toggleMeeting)) log(`could not register ${meetingAccelerator}`);
+    if (!globalShortcut.register(earlyAccelerator, toggleEarly)) log(`could not register ${earlyAccelerator}`);
     controller.setHotkeys({ meetingVk: hotkeys.vk(settings.meetingKey), escapeVk: hotkeys.vk(settings.escapeKey) });
   }
   applyHotkeys();
 
+  // 開機自動啟動（只有打包後的版本才設定）
+  const applyAutoStart = () => { if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: settings.autoStart }); };
+
   ipcMain.on('note:update', (_e, text) => controller.setDraftNote(text));
   ipcMain.on('break:start', () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'card' }));
+  ipcMain.on('reminder:dismiss', () => controller.closeEarlyCard());
+  // 紀錄頁右側欄的 Lock-in 按鈕
+  ipcMain.handle('focus:toggle', () => { log('focus toggle from dashboard', { phase: controller.phase }); toggleMeeting(); return controller.phase; });
+  // 在紀錄頁補寫或修改某一段的紀錄
+  ipcMain.handle('segment:note', (_e, id, note) => {
+    const ok = db.updateSegmentNote(id, note);
+    log('note edited', { id, ok, length: String(note ?? '').trim().length });
+    return ok;
+  });
   ipcMain.handle('break:now', (_e, note) => {
     log('break from dashboard', { phase: controller.phase, note: note ? `${String(note).length} chars` : '' });
     controller.breakNow(note);
@@ -136,8 +154,10 @@ function start() {
   }));
   ipcMain.handle('hotkeys:get', () => ({
     meeting: hotkeys.label(settings.meetingKey), escape: hotkeys.label(settings.escapeKey),
+    early: hotkeys.label(settings.earlyKey),
   }));
   ipcMain.on('tutorial:open', () => windows.openTutorial());
+  ipcMain.on('tutorial:close', () => windows.closeTutorial());
   ipcMain.on('tutorial:done', () => { db.setState('tutorialSeen', Date.now()); windows.closeTutorial(); });
   ipcMain.handle('settings:save', (_e, values) => {
     const result = validate(values);
@@ -147,6 +167,7 @@ function start() {
     config = getConfig(process.env, settings);
     controller.setConfig(config);
     applyHotkeys();
+    applyAutoStart();
     log('settings saved', settings);
     return { ok: true, values: settings };
   });
@@ -169,7 +190,7 @@ function start() {
   // 每 10 分鐘記一次「還活著」，程式突然不見時才知道大概是幾點
   const heartbeat = setInterval(() => log('alive', { phase: controller.phase }), HEARTBEAT_MS);
 
-  // 程式結束、或 Windows 關機/登出（不會觸發 before-quit）時，把進行中的段落和開會紀錄存起來
+  // 程式結束、或 Windows 關機/登出（不會觸發 before-quit）時，把進行中的段落和專注紀錄存起來
   let closed = false;
   const shutdown = (why) => () => {
     if (closed) return;
@@ -194,7 +215,7 @@ function start() {
   // 教學視窗被關掉（不管是按「開始使用」還是右上角 X）就算看過了
   windows.onTutorialClosed(() => { if (!closed) db.setState('tutorialSeen', Date.now()); });
 
-  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true });
+  applyAutoStart();
 }
 
 // 常駐在系統匣：關掉所有視窗也不結束

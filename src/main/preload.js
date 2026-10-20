@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   onReminder: (cb) => ipcRenderer.on('reminder:show', (_e, data) => cb(data)),
   setDraftNote: (text) => ipcRenderer.send('note:update', String(text)),
   startBreak: () => ipcRenderer.send('break:start'),
+  dismissCard: () => ipcRenderer.send('reminder:dismiss'),
   // 回來時的問題卡
   onQuestion: (cb) => ipcRenderer.on('question:show', (_e, data) => cb(data)),
   answer: (stood) => ipcRenderer.send('question:answer', Boolean(stood)),
@@ -16,10 +17,13 @@ contextBridge.exposeInMainWorld('api', {
   getRecords: () => ipcRenderer.invoke('records:get'),
   getStatus: () => ipcRenderer.invoke('status:get'),
   breakNow: (note) => ipcRenderer.invoke('break:now', String(note ?? '')),
+  toggleFocus: () => ipcRenderer.invoke('focus:toggle'),
+  updateNote: (id, note) => ipcRenderer.invoke('segment:note', Number(id), String(note ?? '')),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   // 使用教學
   getHotkeys: () => ipcRenderer.invoke('hotkeys:get'),
   openTutorial: () => ipcRenderer.send('tutorial:open'),
   finishTutorial: () => ipcRenderer.send('tutorial:done'),
+  closeTutorial: () => ipcRenderer.send('tutorial:close'),
   saveSettings: (values) => ipcRenderer.invoke('settings:save', values),
 });

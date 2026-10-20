@@ -9,6 +9,10 @@
 </head>
 <body>
 <nav class="rail" id="rail" aria-label="選單">
+  <div class="brand">
+    <img src="../../assets/logo.svg" alt="" width="28" height="28">
+    <span class="label">Antisedentary</span>
+  </div>
   <button type="button" class="toggle" id="rail-toggle" aria-expanded="false" aria-controls="rail" aria-label="展開選單">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     <span class="label">收起</span>
@@ -42,7 +46,7 @@
 
 <div class="page">
 <main>
-  <h1>紀錄</h1>
+  <h1 class="slogan">休息，是為了走更長的路</h1>
 
   <div class="layout">
   <div class="content">
@@ -77,6 +81,20 @@
         <p class="cup-value"><span id="cup-value"></span><small id="cup-unit"></small></p>
       </div>
     </div>
+
+    <button type="button" class="focus-btn" id="focus-toggle" aria-pressed="false">
+      <span class="focus-title">Lock-in 專注模式</span>
+      <span class="focus-sub" id="focus-sub">按一下開始專注</span>
+    </button>
+
+    <section class="panel keys-panel" aria-labelledby="keys-title">
+      <h2 id="keys-title">快捷鍵</h2>
+      <dl class="keys-list">
+        <div><dt>Lock-in 專注</dt><dd id="key-meeting">—</dd></div>
+        <div><dt>緊急逃出</dt><dd id="key-escape">—</dd></div>
+        <div><dt>提早休息</dt><dd id="key-early">—</dd></div>
+      </dl>
+    </section>
 
     <form class="panel early" id="early-form" aria-labelledby="early-title">
       <h2 id="early-title">提早休息</h2>

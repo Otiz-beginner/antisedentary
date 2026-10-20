@@ -8,6 +8,10 @@
 <link rel="stylesheet" href="tutorial.css">
 </head>
 <body>
+<div class="titlebar">
+  <span class="titlebar-name">使用教學</span>
+  <button type="button" class="tour-close" id="tour-close" aria-label="關閉使用教學">×</button>
+</div>
 <div class="tour" role="region" aria-roledescription="教學" aria-label="使用教學">
 
   <!-- 1 歡迎 -->
@@ -86,22 +90,27 @@
     <p>一陣子沒碰滑鼠鍵盤會先暫停，不會歸零。回來時右下角會問「剛剛有站起來嗎？」：站起來了就重新計時；只是滑手機、講話，就接著算。</p>
   </section>
 
-  <!-- 6 開會與緊急逃出 -->
+  <!-- 6 Lock-in、緊急逃出、提早休息 -->
   <section class="slide" aria-labelledby="t6">
     <div class="stage keys-stage">
       <div class="key-card">
-        <p class="key-title">開會模式</p>
+        <p class="key-title">Lock-in 專注</p>
         <p class="keys" id="key-meeting">Ctrl + Alt + Shift + M</p>
-        <p class="key-desc">開會、簡報時按一下，就不會提醒也不會鎖定；再按一次關閉。</p>
+        <p class="key-desc">需要長時間專注時按一下，沒有時長限制；再按一次結束，寫下這段做了什麼就休息。</p>
       </div>
       <div class="key-card">
         <p class="key-title">緊急逃出</p>
         <p class="keys" id="key-escape">Ctrl + Alt + Shift + E</p>
         <p class="key-desc">休息時遇到急事，按下就立刻解鎖，結束這次休息。</p>
       </div>
+      <div class="key-card">
+        <p class="key-title">提早休息</p>
+        <p class="keys" id="key-early">Ctrl + Alt + Shift + B</p>
+        <p class="key-desc">想提早休息時按一下，右下角浮出卡片，寫完再開始休息。</p>
+      </div>
     </div>
-    <h1 id="t6">開會和急事，各有一組快捷鍵</h1>
-    <p>這兩組快捷鍵都可以在「紀錄」頁左邊的「設定」裡換成你習慣的組合。</p>
+    <h1 id="t6">專注、急事、提早休息，各有一組快捷鍵</h1>
+    <p>這三組快捷鍵都可以在「紀錄」頁左邊的「設定」裡換成你習慣的組合。</p>
   </section>
 
   <!-- 7 紀錄頁 -->

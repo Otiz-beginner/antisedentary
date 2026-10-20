@@ -26,15 +26,18 @@ next.addEventListener('click', () => {
   else show(index + 1);
 });
 prev.addEventListener('click', () => show(index - 1));
+document.getElementById('tour-close').addEventListener('click', () => window.api.closeTutorial());
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowRight') show(index + 1);
+  if (e.key === 'Escape') window.api.closeTutorial();
+  else if (e.key === 'ArrowRight') show(index + 1);
   else if (e.key === 'ArrowLeft') show(index - 1);
 });
 
 // 第 6 頁顯示目前設定的快捷鍵
-window.api.getHotkeys().then(({ meeting, escape }) => {
+window.api.getHotkeys().then(({ meeting, escape, early }) => {
   document.getElementById('key-meeting').textContent = meeting;
   document.getElementById('key-escape').textContent = escape;
+  document.getElementById('key-early').textContent = early;
 }).catch(() => {});
 
 show(0);

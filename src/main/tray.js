@@ -5,7 +5,7 @@ const { Tray, Menu, nativeImage } = require('electron');
 
 const ASSETS = path.join(__dirname, '..', '..', 'assets');
 
-// 系統匣（spec §4.6）。開會中圖示換成淡紫色。
+// 系統匣（spec §4.6）。Lock-in 專注中圖示換成淡紫色。
 function createTray({ onOpenRecords, onBreakNow, onMeetingToggle, onQuit }) {
   const normalIcon = nativeImage.createFromPath(path.join(ASSETS, 'tray.png'));
   const meetingIcon = nativeImage.createFromPath(path.join(ASSETS, 'tray-meeting.png'));
@@ -14,11 +14,11 @@ function createTray({ onOpenRecords, onBreakNow, onMeetingToggle, onQuit }) {
 
   function rebuild() {
     tray.setImage(inMeeting ? meetingIcon : normalIcon);
-    tray.setToolTip(inMeeting ? '防久坐：開會模式' : '防久坐');
+    tray.setToolTip(inMeeting ? 'Antisedentary：Lock-in 專注中' : 'Antisedentary');
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: '打開紀錄', click: onOpenRecords },
       { label: '現在休息', click: onBreakNow, enabled: !inMeeting },
-      { label: '開會模式', type: 'checkbox', checked: inMeeting, click: onMeetingToggle },
+      { label: 'Lock-in 專注模式', type: 'checkbox', checked: inMeeting, click: onMeetingToggle },
       { type: 'separator' },
       { label: '結束程式', click: onQuit },
     ]));

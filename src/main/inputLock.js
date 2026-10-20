@@ -10,7 +10,7 @@ function startInputLock({
   onMeetingHotkey = () => {}, onEscapeHotkey = () => {}, spawn = childProcess.spawn,
 }) {
   const args = [...prefixArgs, '--max-seconds', String(maxSeconds)];
-  // 開會模式、緊急逃出各自的按鍵（Ctrl+Alt+Shift+這個鍵）
+  // Lock-in 專注、緊急逃出各自的按鍵（Ctrl+Alt+Shift+這個鍵）
   if (meetingVk !== undefined) args.push('--meeting-vk', String(meetingVk));
   if (escapeVk !== undefined) args.push('--escape-vk', String(escapeVk));
   const child = spawn(exePath, args, {

@@ -38,3 +38,21 @@ test('card and tray segments get 提早休息 tag', () => {
 test('no segments renders 這天沒有紀錄。', () => {
   assert.ok(renderDayList([]).includes('這天沒有紀錄。'));
 });
+
+test('each list item carries its index so the timeline can jump to it', () => {
+  const html = renderDayList([seg(), seg({ startedAt: t + 40 * M, endedAt: t + 72 * M })]);
+  assert.ok(html.includes('<li id="seg-0" data-i="0" tabindex="-1">'));
+  assert.ok(html.includes('<li id="seg-1" data-i="1" tabindex="-1">'));
+});
+
+test('Lock-in sessions are tagged', () => {
+  const html = renderDayList([seg({ endReason: 'focus', note: '寫 RTL' })]);
+  assert.ok(html.includes('<span class="tag focus">Lock-in 專注</span>'));
+  assert.ok(!html.includes('提早休息'));
+});
+
+test('each item has a button to write or edit its note', () => {
+  const html = renderDayList([seg({ id: 42 }), seg({ id: 43, note: 'x' })]);
+  assert.ok(html.includes('<button type="button" class="edit-note" data-id="42">補寫</button>'));
+  assert.ok(html.includes('<button type="button" class="edit-note" data-id="43">修改</button>'));
+});

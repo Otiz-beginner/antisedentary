@@ -284,12 +284,78 @@ test('meeting mode never reminds or locks', () => {
   assert.deepEqual(effects, []);
 });
 
-test('meetingOff saves meeting and returns to away', () => {
-  const meeting = run([{ type: 'meetingOn', now: 10 * M }]).state;
-  const { state, effects } = run([{ type: 'meetingOff', now: 70 * M }], meeting);
+// ---------- Lock-in 專注模式（內部沿用 meeting 這個名字） ----------
+const focusAt = (start) => run([{ type: 'meetingOn', now: start }]).state;
+
+test('ending Lock-in shows the wrap-up card for the wrap-up time', () => {
+  const { state, effects } = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M));
+  assert.equal(state.phase, 'focusWrap');
+  assert.deepEqual(effects, [{ type: 'showReminder', startsAt: 70 * M, endsAt: 73 * M, kind: 'focus' }]);
+});
+
+test('when the wrap-up water runs out the focus session is saved and the break starts', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { state, effects } = run(ticksActive(70 * M + S, 73 * M), wrap);
+  assert.equal(state.phase, 'locked');
+  assert.deepEqual(effects, [
+    { type: 'hideReminder' },
+    { type: 'saveSegment', startedAt: 10 * M, endedAt: 70 * M, endReason: 'focus' },
+    { type: 'lock', startsAt: 73 * M, endsAt: 76 * M },
+  ]);
+});
+
+test('starting the break from the wrap-up card saves focus and locks at once', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { state, effects } = run([{ type: 'startBreak', now: 71 * M, source: 'card' }], wrap);
+  assert.equal(state.phase, 'locked');
+  assert.deepEqual(types(effects), ['hideReminder', 'saveSegment', 'lock']);
+  assert.equal(find(effects, 'saveSegment').endReason, 'focus');
+  assert.equal(find(effects, 'saveSegment').endedAt, 70 * M);
+});
+
+test('pressing Lock-in again during the wrap-up goes back to the same focus session', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { state, effects } = run([{ type: 'meetingOn', now: 71 * M }], wrap);
+  assert.equal(state.phase, 'meeting');
+  assert.equal(state.meetingStart, 10 * M);
+  assert.deepEqual(effects, [{ type: 'hideReminder' }]);
+});
+
+test('walking away during the wrap-up saves focus without locking an empty desk', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { state, effects } = run(ticksIdleSince(70 * M, 70 * M + S, 73 * M), wrap);
   assert.equal(state.phase, 'away');
-  assert.equal(state.since, 70 * M);
-  assert.deepEqual(effects, [{ type: 'saveMeeting', startedAt: 10 * M, endedAt: 70 * M }]);
+  assert.deepEqual(types(effects), ['hideReminder', 'saveSegment']);
+  assert.ok(!types(effects).includes('lock'));
+});
+
+test('Lock-in has no work-length limit', () => {
+  const { state, effects } = run(ticksActive(S, 3 * 60 * M, 30 * S), focusAt(0));
+  assert.equal(state.phase, 'meeting');
+  assert.deepEqual(effects, []);
+});
+
+test('quitting during the wrap-up saves the focus session', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { effects } = run([{ type: 'quit', now: 71 * M }], wrap);
+  assert.deepEqual(effects, [{ type: 'hideReminder' }, { type: 'saveSegment', startedAt: 10 * M, endedAt: 70 * M, endReason: 'focus' }]);
+});
+
+test('sleeping through the wrap-up saves focus and does not lock on wake', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  const { state, effects } = run([tick(70 * M + S, 0), { type: 'suspend', now: 71 * M }, { type: 'resume', now: 90 * M }, tick(90 * M + S, 0)], wrap);
+  assert.ok(!types(effects).includes('lock'));
+  assert.equal(find(effects, 'saveSegment').endReason, 'focus');
+  assert.notEqual(state.phase, 'locked');
+});
+
+test('the early-break, escape and answer inputs do nothing during the wrap-up', () => {
+  const wrap = run([{ type: 'meetingOff', now: 70 * M }], focusAt(10 * M)).state;
+  for (const input of [{ type: 'escape', now: 71 * M }, { type: 'answer', now: 71 * M, stood: true }, { type: 'meetingOff', now: 71 * M }]) {
+    const out = run([input], wrap);
+    assert.deepEqual(out.effects, [], input.type);
+    assert.equal(out.state.phase, 'focusWrap', input.type);
+  }
 });
 
 test('resume after long suspend during reminder ends segment as idle', () => {
@@ -326,9 +392,9 @@ test('quit during working saves quit segment', () => {
   assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 7 * M, endReason: 'quit' }]);
 });
 
-test('quit during meeting saves meeting; quit while locked unlocks', () => {
+test('quit during Lock-in saves the focus session; quit while locked unlocks', () => {
   const meeting = run([{ type: 'meetingOn', now: 0 }]).state;
-  assert.deepEqual(run([{ type: 'quit', now: 5 * M }], meeting).effects, [{ type: 'saveMeeting', startedAt: 0, endedAt: 5 * M }]);
+  assert.deepEqual(run([{ type: 'quit', now: 5 * M }], meeting).effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 5 * M, endReason: 'focus' }]);
   const locked = run(ticksActive(0, 32 * M)).state;
   assert.deepEqual(types(run([{ type: 'quit', now: 33 * M }], locked).effects), ['unlock']);
 });
@@ -372,4 +438,14 @@ test('escape outside a lock does nothing', () => {
     assert.deepEqual(out.state, state);
     assert.deepEqual(out.effects, []);
   }
+});
+
+test('whole-second idle times never make a paused segment end before it starts', () => {
+  // Windows 只回報整秒的閒置時間：開始計時時 idleMs=0，0.4 秒後回報的「最後輸入」可能落在開始之前
+  const working = run([tick(10 * S + 400, 0)]).state; // segStart = 10.4s
+  const { state, effects } = run(ticksIdleSince(10 * S, 11 * S, 10 * S + 3 * M), working);
+  assert.equal(state.phase, 'paused');
+  assert.ok(state.idleFrom >= state.segStart);
+  const later = run(ticksIdleSince(10 * S, 10 * S + 3 * M + S, 10 * S + 31 * M), state);
+  for (const e of [...effects, ...later.effects].filter((x) => x.type === 'saveSegment')) assert.ok(e.endedAt >= e.startedAt);
 });

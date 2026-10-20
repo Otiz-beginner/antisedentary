@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { KEYS, accelerator, vk, label } = require('../src/core/hotkeys');
 
 test('the key list matches the plan', () => {
-  assert.deepEqual(KEYS, ['M', 'K', 'J', 'P', 'E', 'X', '0', '9']);
+  assert.deepEqual(KEYS, ['M', 'K', 'J', 'P', 'E', 'X', 'B', '0', '9']);
 });
 
 test('accelerator is Ctrl+Alt+Shift plus the key for Electron', () => {

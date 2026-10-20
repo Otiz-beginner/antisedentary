@@ -7,12 +7,19 @@
 <link rel="stylesheet" href="water.css">
 <style>
   .card { right: 10px; bottom: 10px; }
+  /* 用快捷鍵叫出的提早休息卡片才有：右上角小圓 × */
+  .card .close { position: absolute; top: 10px; right: 10px; z-index: 2; width: 24px; height: 24px; border-radius: 50%;
+                 border: 0; padding: 0; background: rgba(255,255,255,.85); color: var(--ink-soft); font-size: 15px;
+                 line-height: 24px; cursor: pointer; box-shadow: inset 0 0 0 1px var(--slate); }
+  .card .close:hover { background: #fff; color: var(--ink); }
+  .card .close[hidden] { display: none; }
 </style>
 </head>
 <body>
-  <div class="card" id="card" role="dialog" aria-label="快到休息時間了">
+  <div class="card" id="card" role="dialog" aria-labelledby="title">
     <div class="tank"></div>
-    <h3>快到休息時間了</h3>
+    <button type="button" class="close" id="close" aria-label="收起" hidden>×</button>
+    <h3 id="title">快到休息時間了</h3>
     <textarea id="note" placeholder="這段時間做了什麼？（可以不寫）"></textarea>
     <div class="row"><button type="button" id="start">開始休息</button></div>
   </div>

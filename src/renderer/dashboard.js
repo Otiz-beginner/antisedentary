@@ -88,13 +88,16 @@ function showDay(d) {
   const from = dayStart + 8 * 3600000;
   const to = dayStart + 24 * 3600000;
   const pct = (ms) => `${(Math.min(Math.max(ms, from), to) - from) / (to - from) * 100}%`;
-  const bar = (a, b, cls = '') =>
-    `<b class="${cls}" style="left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})" title="${hm(a)}–${hm(b)}"></b>`;
+  const style = (a, b) => `left:${pct(a)};width:calc(${pct(b)} - ${pct(a)})`;
+  const meetBar = (m) => `<b class="meeting" style="${style(m.startedAt, m.endedAt)}" title="Lock-in ${hm(m.startedAt)}–${hm(m.endedAt)}"></b>`;
+  // 工作段是按鈕：點了跳到下面清單裡的那一段
+  const segBar = (s, i) => `<button type="button" class="seg${s.endReason === 'focus' ? ' focus' : ''}" data-i="${i}" style="${style(s.startedAt, s.endedAt)}"
+      title="${hm(s.startedAt)}–${hm(s.endedAt)}" aria-label="跳到 ${hm(s.startedAt)} 到 ${hm(s.endedAt)} 這一段"></button>`;
   const minutes = Math.round(total / 60000);
   el.innerHTML = `
     <div class="day-head"><h2>${title}</h2>
       <span class="sum">${segs.length} 段，共 ${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分</span></div>
-    <div class="track">${meets.map((m) => bar(m.startedAt, m.endedAt, 'meeting')).join('')}${segs.map((s) => bar(s.startedAt, s.endedAt)).join('')}</div>
+    <div class="track">${meets.map(meetBar).join('')}${segs.map(segBar).join('')}</div>
     <div class="track-axis">${[8, 12, 16, 20, 24].map((h) => `<span style="left:${(h - 8) / 16 * 100}%">${h}:00</span>`).join('')}</div>
     ${DayView.renderDayList(segs)}`;
 }
@@ -120,12 +123,14 @@ async function updateCup() {
   $('cup-value').textContent = v.value;
   $('cup-unit').textContent = v.unit;
   updateEarly(status.phase);
+  updateFocus(status.phase);
 }
 
 // 側欄：從 dashboard 提早休息
 const EARLY_HINTS = {
   locked: '正在休息中',
-  meeting: '開會模式中不能提早休息',
+  meeting: 'Lock-in 專注中，要休息請先結束專注',
+  focusWrap: '正在寫專注的收尾，水退光就休息',
   away: '還沒開始計時，這次不會留下紀錄',
   paused: '暫停中：會存到你離開前那一刻',
 };
@@ -189,14 +194,30 @@ let lastFocus = null;
 
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// 設定分三群，依這個順序顯示
+const GROUPS = [['hotkey', '快捷鍵'], ['time', '時間設定'], ['other', '其他']];
+
 function renderSettings(fields, values, keys) {
-  $('settings-fields').innerHTML = fields.map((f) => {
-    const control = f.kind === 'hotkey'
-      ? `<select id="set-${f.key}" name="${f.key}" aria-describedby="err-${f.key}">
+  $('settings-fields').innerHTML = GROUPS.map(([group, name]) => `
+    <section class="group" aria-labelledby="group-${group}">
+      <h3 class="group-title" id="group-${group}">${name}</h3>
+      ${fields.filter((f) => f.group === group).map((f) => renderField(f, values, keys)).join('')}
+    </section>`).join('');
+}
+
+function renderField(f, values, keys) {
+    let control;
+    if (f.kind === 'hotkey') {
+      control = `<select id="set-${f.key}" name="${f.key}" aria-describedby="err-${f.key}">
            ${keys.map((k) => `<option value="${k.key}"${k.key === values[f.key] ? ' selected' : ''}>${escapeHtml(k.label)}</option>`).join('')}
-         </select>`
-      : `<input type="number" id="set-${f.key}" name="${f.key}" min="${f.min}" max="${f.max}" step="1"
+         </select>`;
+    } else if (f.kind === 'toggle') {
+      control = `<span class="switch"><input type="checkbox" role="switch" id="set-${f.key}" name="${f.key}"
+                 ${values[f.key] ? 'checked' : ''} aria-describedby="err-${f.key}"><span class="track-ui" aria-hidden="true"></span></span>`;
+    } else {
+      control = `<input type="number" id="set-${f.key}" name="${f.key}" min="${f.min}" max="${f.max}" step="1"
                 value="${values[f.key]}" aria-describedby="err-${f.key}"><span class="unit">${f.unit}</span>`;
+    }
     return `
     <div class="field">
       <div class="field-row">
@@ -210,7 +231,6 @@ function renderSettings(fields, values, keys) {
       <p class="help-text" id="help-${f.key}" hidden>${escapeHtml(f.help)}</p>
       <span class="error" id="err-${f.key}"></span>
     </div>`;
-  }).join('');
 }
 
 // 點「?」展開說明，再點一次收起；同時只開一個
@@ -267,11 +287,14 @@ $('settings-modal').addEventListener('keydown', (e) => {
 $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const values = Object.fromEntries(new FormData(e.target).entries());
+  // 開關沒勾時 FormData 不會帶這個欄位，要明確送 false
+  e.target.querySelectorAll('input[type="checkbox"]').forEach((box) => { values[box.name] = box.checked; });
   const result = await window.api.saveSettings(values);
   if (result.ok) {
     showErrors({});
     $('settings-status').textContent = '已儲存，馬上生效';
     updateCup();
+    loadHotkeys();
   } else {
     showErrors(result.errors);
     $('settings-status').textContent = '有欄位需要修正';
@@ -279,12 +302,87 @@ $('settings-form').addEventListener('submit', async (e) => {
 });
 
 $('settings-reset').addEventListener('click', () => {
-  for (const [key, value] of Object.entries(settingsDefaults)) $(`set-${key}`).value = value;
+  for (const [key, value] of Object.entries(settingsDefaults)) {
+    const el = $(`set-${key}`);
+    if (el.type === 'checkbox') el.checked = Boolean(value);
+    else el.value = value;
+  }
   showErrors({});
   $('settings-status').textContent = '已填回預設值，按「儲存設定」才會生效';
 });
 
+// 右側欄：目前的快捷鍵
+async function loadHotkeys() {
+  const keys = await window.api.getHotkeys();
+  $('key-meeting').textContent = keys.meeting;
+  $('key-escape').textContent = keys.escape;
+  $('key-early').textContent = keys.early;
+}
+
 load();
+loadHotkeys();
 updateCup();
 setInterval(updateCup, 1000);
-window.addEventListener('focus', load);
+// 視窗拿回焦點時重新整理；正在補寫紀錄時不要把編輯框洗掉
+window.addEventListener('focus', () => { if (!document.querySelector('.note-editor')) load(); });
+
+// ---------- 右側欄：Lock-in 專注模式按鈕 ----------
+function updateFocus(phase) {
+  const btn = $('focus-toggle');
+  const on = phase === 'meeting';
+  btn.setAttribute('aria-pressed', String(on));
+  btn.disabled = phase === 'locked' || phase === 'focusWrap';
+  $('focus-sub').textContent = on ? '專注中，按一下結束'
+    : phase === 'focusWrap' ? '正在收尾，水退光就休息'
+    : phase === 'locked' ? '休息中'
+    : '按一下開始專注，沒有時長限制';
+}
+$('focus-toggle').addEventListener('click', async () => {
+  const phase = await window.api.toggleFocus();
+  updateFocus(phase);
+  updateCup();
+});
+
+// ---------- 補寫或修改某一段的紀錄 ----------
+$('day').addEventListener('click', async (e) => {
+  const editBtn = e.target.closest('.edit-note');
+  if (editBtn) {
+    const seg = visible.find((x) => x.id === Number(editBtn.dataset.id));
+    const noteEl = editBtn.closest('.note');
+    if (!seg || !noteEl || noteEl.querySelector('.note-editor')) return;
+    noteEl.innerHTML = `<div class="note-editor">
+        <textarea aria-label="這段時間做了什麼"></textarea>
+        <div class="row"><button type="button" class="cancel">取消</button><button type="button" class="save" data-id="${seg.id}">儲存</button></div>
+      </div>`;
+    const box = noteEl.querySelector('textarea');
+    box.value = seg.note || '';
+    box.focus();
+    return;
+  }
+  const save = e.target.closest('.note-editor .save');
+  if (save) {
+    const text = save.closest('.note-editor').querySelector('textarea').value;
+    save.disabled = true;
+    await window.api.updateNote(save.dataset.id, text);
+    load();
+    return;
+  }
+  if (e.target.closest('.note-editor .cancel')) load();
+});
+$('day').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && e.target.closest('.note-editor')) load();
+});
+
+// 點時間軸上的區塊：捲到下面清單裡那一段，並亮一下
+$('day').addEventListener('click', (e) => {
+  const bar = e.target.closest('.track .seg');
+  if (!bar) return;
+  const item = $(`seg-${bar.dataset.i}`);
+  if (!item) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  item.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+  item.classList.remove('flash');
+  void item.offsetWidth;
+  item.classList.add('flash');
+  item.focus({ preventScroll: true });
+});

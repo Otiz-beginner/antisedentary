@@ -22,6 +22,8 @@ function setup({ startLockThrows = false } = {}) {
     hideReminder: () => calls.push(['hideReminder', clock.t]),
     showLock: (a) => calls.push(['showLock', a, clock.t]),
     hideLock: () => calls.push(['hideLock', clock.t]),
+    showQuestion: (a) => calls.push(['showQuestion', a, clock.t]),
+    hideQuestion: () => calls.push(['hideQuestion', clock.t]),
     setMeetingIndicator: (on) => calls.push(['meeting', on]),
   };
   const startLock = (opts) => {
@@ -93,12 +95,32 @@ test('meeting hotkey from helper unlocks and enables meeting indicator', () => {
   assert.deepEqual(calls.at(-1), ['meeting', true]);
 });
 
-test('meetingOff turns meeting indicator off and saves the meeting', () => {
+test('ending Lock-in turns the indicator off and shows the wrap-up card', () => {
   const { ctl, calls, meetings } = setup();
   ctl.dispatch({ type: 'meetingOn', now: 0 });
   ctl.dispatch({ type: 'meetingOff', now: 10 * M });
   assert.deepEqual(calls.filter((c) => c[0] === 'meeting'), [['meeting', true], ['meeting', false]]);
-  assert.deepEqual(meetings, [{ startedAt: 0, endedAt: 10 * M, host: 'pc' }]);
+  assert.deepEqual(calls.at(-2), ['showReminder', { startsAt: 10 * M, endsAt: 13 * M, note: '', kind: 'focus' }, 0]);
+  assert.deepEqual(meetings, []);
+});
+
+test('the note on the Lock-in wrap-up card is saved with the focus session, then the break starts', () => {
+  const { ctl, clock, segments, locks } = setup();
+  ctl.dispatch({ type: 'meetingOn', now: 0 });
+  clock.t = 50 * M;
+  ctl.dispatch({ type: 'meetingOff', now: clock.t });
+  ctl.setDraftNote('專注完成 floorplan');
+  while (clock.t < 53 * M) { clock.t += S; ctl.tick(); }
+  assert.equal(ctl.phase, 'locked');
+  assert.deepEqual(segments, [{ startedAt: 0, endedAt: 50 * M, endReason: 'focus', note: '專注完成 floorplan', host: 'pc' }]);
+  assert.equal(locks.length, 1);
+});
+
+test('status reports the Lock-in start so the dashboard can show elapsed focus time', () => {
+  const { ctl, clock } = setup();
+  ctl.dispatch({ type: 'meetingOn', now: 0 });
+  clock.t = 25 * M;
+  assert.deepEqual(ctl.status(), { phase: 'meeting', meetingStart: 0, now: 25 * M });
 });
 
 test('startLock throwing still shows lock window', () => {
@@ -121,7 +143,7 @@ test('full cycle at speed: reminder at 29m, lock at 32m, unlock at 35m', () => {
   advance(36 * M);
   const when = (n) => calls.find((c) => c[0] === n).at(-1);
   assert.equal(when('showReminder'), 29 * M);
-  assert.deepEqual(calls.find((c) => c[0] === 'showReminder')[1], { startsAt: 29 * M, endsAt: 32 * M });
+  assert.deepEqual(calls.find((c) => c[0] === 'showReminder')[1], { startsAt: 29 * M, endsAt: 32 * M, note: '', kind: 'reminder' });
   assert.equal(when('hideReminder'), 32 * M);
   assert.equal(when('showLock'), 32 * M);
   assert.equal(when('hideLock'), 35 * M);
@@ -193,7 +215,7 @@ test('setConfig applies new timings to the running segment', () => {
   advance(10 * M);
   ctl.setConfig({ ...config, workMs: 12 * M, reminderMs: 2 * M, lockMs: 5 * M });
   advance(12 * M);
-  assert.deepEqual(calls.find((c) => c[0] === 'showReminder')[1], { startsAt: 12 * M, endsAt: 14 * M });
+  assert.deepEqual(calls.find((c) => c[0] === 'showReminder')[1], { startsAt: 12 * M, endsAt: 14 * M, note: '', kind: 'reminder' });
   advance(14 * M);
   assert.deepEqual(calls.find((c) => c[0] === 'showLock')[1], { startsAt: 14 * M, endsAt: 19 * M });
   assert.equal(locks[0].opts.maxSeconds, 305);
@@ -251,4 +273,125 @@ test('default hotkey codes are M and E', () => {
   advance(32 * M);
   assert.equal(locks[0].opts.meetingVk, 0x4d);
   assert.equal(locks[0].opts.escapeVk, 0x45);
+});
+
+test('early-break hotkey opens a dismissible card that stays full until the last minutes', () => {
+  const { ctl, calls, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.toggleEarlyCard();
+  assert.deepEqual(calls.at(-1), ['showReminder', { startsAt: 29 * M, endsAt: 32 * M, note: '', kind: 'early' }, 10 * M]);
+  ctl.toggleEarlyCard();
+  assert.deepEqual(calls.at(-1), ['hideReminder', 10 * M]);
+});
+
+test('a note written on the early card is saved when the break starts from it', () => {
+  const { ctl, clock, segments, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.toggleEarlyCard();
+  ctl.setDraftNote('寫完 testbench');
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'card' });
+  assert.equal(ctl.phase, 'locked');
+  assert.equal(segments[0].note, '寫完 testbench');
+  assert.equal(segments[0].endReason, 'card');
+});
+
+test('breaking from the early card closes it', () => {
+  const { ctl, clock, calls, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.toggleEarlyCard();
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'card' });
+  const names = calls.map((c) => c[0]);
+  assert.ok(names.lastIndexOf('hideReminder') > names.lastIndexOf('showReminder'));
+});
+
+test('when reminder time comes the early card becomes the normal reminder and keeps the note', () => {
+  const { ctl, calls, advance } = setup();
+  ctl.tick();
+  advance(28 * M);
+  ctl.toggleEarlyCard();
+  ctl.setDraftNote('收尾中');
+  advance(29 * M);
+  assert.deepEqual(calls.at(-1), ['showReminder', { startsAt: 29 * M, endsAt: 32 * M, note: '收尾中', kind: 'reminder' }, 29 * M]);
+  ctl.toggleEarlyCard(); // 正常提醒卡不能用快捷鍵收起
+  assert.equal(calls.at(-1)[0], 'showReminder');
+});
+
+test('early-break hotkey does nothing while paused, locked or in a meeting', () => {
+  const { ctl, clock, calls, advance } = setup();
+  ctl.tick();
+  advance(32 * M); // locked
+  const before = calls.length;
+  ctl.toggleEarlyCard();
+  ctl.dispatch({ type: 'meetingOn', now: clock.t });
+  const afterMeeting = calls.length;
+  ctl.toggleEarlyCard();
+  assert.equal(calls.length, afterMeeting);
+  assert.ok(!calls.slice(before).some((c) => c[0] === 'showReminder'));
+});
+
+test('the early card closes when you step away', () => {
+  const { ctl, clock, calls, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.toggleEarlyCard();
+  while (clock.t < 14 * M) { clock.t += S; clock.idle = clock.t - 10 * M; ctl.tick(); }
+  assert.equal(ctl.phase, 'paused');
+  assert.equal(calls.at(-1)[0], 'hideReminder');
+});
+
+test('a note from the early card is not carried into the next segment when there was nothing to save', () => {
+  const { ctl, clock, segments, advance } = setup();
+  ctl.toggleEarlyCard(); // 還沒開始計時
+  ctl.setDraftNote('沒有工作段可以存');
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'card' });
+  assert.equal(ctl.phase, 'locked');
+  advance(3 * M + S); // 解鎖
+  ctl.tick();
+  advance(10 * M);
+  ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'tray' });
+  assert.equal(segments.at(-1).note, '');
+});
+
+test('the early card does not open on top of the question card', () => {
+  const { ctl, clock, calls, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  while (clock.t < 14 * M) { clock.t += S; clock.idle = clock.t - 10 * M; ctl.tick(); }
+  clock.t += S; clock.idle = 0; ctl.tick(); // 回來：問題卡出現
+  assert.equal(calls.at(-1)[0], 'showQuestion');
+  ctl.toggleEarlyCard();
+  assert.equal(calls.at(-1)[0], 'showQuestion');
+});
+
+test('starting Lock-in while the early card is open closes it and keeps its note on the segment', () => {
+  const { ctl, clock, calls, segments, advance } = setup();
+  ctl.tick();
+  advance(10 * M);
+  ctl.toggleEarlyCard();
+  ctl.setDraftNote('先記一下');
+  ctl.dispatch({ type: 'meetingOn', now: clock.t });
+  assert.equal(ctl.phase, 'meeting');
+  assert.equal(calls.at(-1)[0] === 'hideReminder' || calls.some((c, i) => c[0] === 'hideReminder' && i > calls.findIndex((x) => x[0] === 'showReminder')), true);
+  assert.deepEqual(segments.map((s) => [s.endReason, s.note]), [['meeting', '先記一下']]);
+});
+
+test('the early-break hotkey does nothing during the Lock-in wrap-up', () => {
+  const { ctl, calls } = setup();
+  ctl.dispatch({ type: 'meetingOn', now: 0 });
+  ctl.dispatch({ type: 'meetingOff', now: 10 * M });
+  const n = calls.length;
+  ctl.toggleEarlyCard();
+  assert.equal(calls.length, n);
+});
+
+test('a break from the dashboard during the Lock-in wrap-up saves the focus session with that note', () => {
+  const { ctl, segments } = setup();
+  ctl.dispatch({ type: 'meetingOn', now: 0 });
+  ctl.dispatch({ type: 'meetingOff', now: 10 * M });
+  ctl.breakNow('從紀錄頁寫的');
+  assert.equal(ctl.phase, 'locked');
+  assert.deepEqual(segments.map((s) => [s.endReason, s.note, s.endedAt]), [['focus', '從紀錄頁寫的', 10 * M]]);
 });

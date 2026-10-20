@@ -36,6 +36,7 @@ function openDb(filePath) {
       value TEXT NOT NULL
     );
   `);
+  const updateNote = db.prepare('UPDATE segments SET note = ? WHERE id = ?');
   const selectState = db.prepare('SELECT value FROM app_state WHERE key = ?');
   const upsertState = db.prepare(
     'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -68,6 +69,8 @@ function openDb(filePath) {
       return row ? JSON.parse(row.json) : {};
     },
     saveSettings: (settings) => { upsertSettings.run(JSON.stringify(settings)); },
+    // 在紀錄頁補寫或修改某一段的紀錄；找不到這一段就回傳 false
+    updateSegmentNote: (id, note) => updateNote.run(String(note ?? '').trim(), Number(id)).changes > 0,
     // 程式自己的小狀態，例如新手教學看過了沒
     getState: (key) => selectState.get(key)?.value ?? null,
     setState: (key, value) => { upsertState.run(key, String(value)); },
