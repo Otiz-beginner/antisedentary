@@ -141,3 +141,13 @@ test('a written note can be cleared', () => {
   assert.equal(db.listSegments()[0].note, '');
   db.close();
 });
+
+test('a segment can be deleted and an unknown id reports false', () => {
+  const db = openDb(tmpFile());
+  const a = db.insertSegment(seg(1));
+  const b = db.insertSegment(seg(2));
+  assert.equal(db.deleteSegment(a), true);
+  assert.deepEqual(db.listSegments().map((s) => s.id), [b]);
+  assert.equal(db.deleteSegment(a), false);
+  db.close();
+});

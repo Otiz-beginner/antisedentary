@@ -20,7 +20,8 @@
       else if (isEarly(s)) tag = '<span class="tag">提早休息</span>';
       // 補寫或修改這一段的紀錄
       const edit = s.id === undefined ? ''
-        : `<button type="button" class="edit-note" data-id="${Number(s.id)}">${s.note ? '修改' : '補寫'}</button>`;
+        : `<span class="seg-actions"><button type="button" class="edit-note" data-id="${Number(s.id)}">${s.note ? '修改' : '補寫'}</button>`
+          + `<button type="button" class="delete-seg" data-id="${Number(s.id)}">刪除</button></span>`;
       // id／data-i 讓時間軸上的區塊可以跳到這一段
       return `<li id="seg-${i}" data-i="${i}" tabindex="-1"><div class="when">${hm(s.startedAt)}–${hm(s.endedAt)}<small>${minutes} 分鐘</small></div>${note}${tag}${edit}</div></li>`;
     });

@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const { BrowserWindow, screen } = require('electron');
+const { BrowserWindow, desktopCapturer, screen } = require('electron');
 
 const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, 'preload.js');
@@ -69,13 +69,42 @@ function createWindows({ log = () => {} } = {}) {
   const reminder = cornerCard('reminder.html', REMINDER_SIZE, 'reminder:show', 'reminder');
   const question = cornerCard('question.html', QUESTION_SIZE, 'question:show', 'question');
 
+  // 鎖定前把每個螢幕拍一張小圖，交給鎖定畫面自己模糊。
+  // 不靠 Windows 的壓克力效果：遠端桌面或關掉透明效果時，壓克力只會剩下一片單色。
+  async function captureScreens() {
+    const { width, height } = screen.getPrimaryDisplay().size;
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'], thumbnailSize: { width: Math.round(width / 2), height: Math.round(height / 2) },
+    });
+    return new Map(sources.map((s) => [String(s.display_id), s.thumbnail]));
+  }
+
+  let lockToken = 0;
+  // 拍照最多等這麼久；太慢就不等，直接用備用底色
+  const CAPTURE_WAIT_MS = 1500;
   function showLock(data) {
     hideLock();
+    const token = ++lockToken;
+    if (data.background !== 'blur') { openLockWindows(data, new Map()); return; }
+    // 先拍、再開視窗，才不會拍到鎖定畫面自己
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), CAPTURE_WAIT_MS));
+    Promise.race([captureScreens(), timeout])
+      .catch((err) => { log('screen capture failed', err); return null; })
+      .then((shots) => {
+        if (token !== lockToken) return; // 拍照中就已經解鎖了
+        if (!shots) log('screen capture skipped');
+        openLockWindows(data, shots || new Map());
+      });
+  }
+
+  function openLockWindows(data, shots) {
     const primaryId = screen.getPrimaryDisplay().id;
     lockWindows = screen.getAllDisplays().map((display) => {
+      const shot = shots.get(String(display.id));
+      const backdrop = shot && !shot.isEmpty() ? `data:image/jpeg;base64,${shot.toJPEG(70).toString('base64')}` : null;
       const win = new BrowserWindow({
         ...display.bounds,
-        frame: false, transparent: false, backgroundMaterial: 'acrylic', backgroundColor: '#00000000',
+        frame: false, transparent: false, backgroundColor: '#5B6E92',
         resizable: false, movable: false, skipTaskbar: true, minimizable: false, maximizable: false,
         alwaysOnTop: true, focusable: true, show: false, webPreferences,
       });
@@ -85,16 +114,19 @@ function createWindows({ log = () => {} } = {}) {
       win.loadFile(path.join(RENDERER, 'lock.html'));
       whenLoaded(win, () => {
         if (win.isDestroyed()) return;
-        win.webContents.send('lock:show', { ...data, primary: display.id === primaryId });
+        // 拍不到照片（例如遠端桌面視窗縮到最小時）就改用內建桌布，不要只剩一片單色
+        const background = backdrop ? 'blur' : 'wallpaper';
+        win.webContents.send('lock:show', { ...data, background, backdrop, primary: display.id === primaryId });
         win.show();
         win.moveTop();
       });
       return win;
     });
-    log('lock shown', { displays: lockWindows.length });
+    log('lock shown', { displays: lockWindows.length, background: data.background, captured: shots.size });
   }
 
   function hideLock() {
+    lockToken += 1;
     for (const win of lockWindows) if (!win.isDestroyed()) win.destroy();
     lockWindows = [];
   }

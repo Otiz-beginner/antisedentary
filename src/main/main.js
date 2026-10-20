@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { app, globalShortcut, ipcMain, powerMonitor } = require('electron');
 const { getConfig } = require('../core/config');
-const { DEFAULTS, FIELDS, validate } = require('../core/settings');
+const { DEFAULTS, FIELDS, validate, sloganFor } = require('../core/settings');
 const hotkeys = require('../core/hotkeys');
 const { openDb, dailyBackup } = require('./db');
 const { createLogger } = require('./logger');
@@ -85,7 +85,10 @@ function start() {
       hideReminder: windows.hideReminder,
       showQuestion: (d) => { log('show question', d); windows.showQuestion(d); },
       hideQuestion: windows.hideQuestion,
-      showLock: (d) => { log('lock', d); windows.showLock(d); },
+      showLock: (d) => {
+        log('lock', d);
+        windows.showLock({ ...d, background: settings.restBackground, slogan: sloganFor(settings) });
+      },
       hideLock: () => { log('unlock'); windows.hideLock(); },
       setMeetingIndicator: (on) => { log('meeting mode', { on }); if (tray) tray.setMeetingIndicator(on); },
     },
@@ -129,6 +132,12 @@ function start() {
   ipcMain.handle('segment:note', (_e, id, note) => {
     const ok = db.updateSegmentNote(id, note);
     log('note edited', { id, ok, length: String(note ?? '').trim().length });
+    return ok;
+  });
+  // 在紀錄頁刪除某一段
+  ipcMain.handle('segment:delete', (_e, id) => {
+    const ok = db.deleteSegment(id);
+    log('segment deleted', { id, ok });
     return ok;
   });
   ipcMain.handle('break:now', (_e, note) => {

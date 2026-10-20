@@ -1,5 +1,5 @@
 'use strict';
-// 把需要的字型（粉圓 400、Noto Sans TC 400/500/700）從 @fontsource 複製到 src/renderer/fonts，
+// 把需要的字型（粉圓 400、Noto Sans TC 400/500/700、Luckiest Guy）從 @fontsource 複製到 src/renderer/fonts，
 // 程式執行時就不用連網路（spec §7）。只保留 woff2。
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,6 +12,7 @@ const wanted = [
   ['noto-sans-tc', '400'],
   ['noto-sans-tc', '500'],
   ['noto-sans-tc', '700'],
+  ['luckiest-guy', '400'], // 休息畫面的 POP 大字
 ];
 
 fs.rmSync(outDir, { recursive: true, force: true });

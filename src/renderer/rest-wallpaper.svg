@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <!-- 休息畫面的內建桌布：傍晚的天空、遠山和湖面，用程式的配色 -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7B9DC8"/>
+      <stop offset=".45" stop-color="#B9B8F0"/>
+      <stop offset=".72" stop-color="#E4D3FF"/>
+      <stop offset="1" stop-color="#F3E9FF"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFF7FF"/>
+      <stop offset=".55" stop-color="#F5E4FF"/>
+      <stop offset="1" stop-color="#F5E4FF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#92C7FF"/>
+      <stop offset="1" stop-color="#5B86C0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <circle cx="1340" cy="560" r="260" fill="url(#sun)"/>
+  <circle cx="1340" cy="560" r="96" fill="#FFF8FF" opacity=".9"/>
+  <g fill="#FFFFFF" opacity=".55">
+    <ellipse cx="420" cy="250" rx="190" ry="34"/>
+    <ellipse cx="520" cy="226" rx="120" ry="30"/>
+    <ellipse cx="1560" cy="300" rx="160" ry="26"/>
+    <ellipse cx="980" cy="170" rx="110" ry="20"/>
+  </g>
+  <path d="M0 700 C 220 560 380 600 560 520 C 760 430 900 560 1080 540 C 1260 520 1400 430 1600 500 C 1760 556 1850 560 1920 540 L1920 1080 L0 1080 Z" fill="#BFC9DF"/>
+  <path d="M0 760 C 200 680 420 720 640 650 C 860 580 1000 700 1240 690 C 1460 680 1620 610 1920 660 L1920 1080 L0 1080 Z" fill="#9BAED3"/>
+  <path d="M0 820 C 260 770 520 800 820 760 C 1100 724 1380 780 1640 760 C 1780 750 1860 740 1920 744 L1920 1080 L0 1080 Z" fill="#7B9DC8"/>
+  <rect y="850" width="1920" height="230" fill="url(#lake)"/>
+  <g stroke="#E8F3FF" stroke-linecap="round" opacity=".55">
+    <path d="M1220 900 H1460" stroke-width="6"/>
+    <path d="M1260 940 H1420" stroke-width="5"/>
+    <path d="M1290 980 H1390" stroke-width="4"/>
+    <path d="M260 960 H420" stroke-width="4"/>
+    <path d="M700 1010 H820" stroke-width="3"/>
+  </g>
+</svg>

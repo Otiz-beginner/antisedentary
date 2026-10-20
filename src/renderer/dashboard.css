@@ -170,6 +170,19 @@ h1.slogan { font-size: 34px; letter-spacing: 1px; margin-bottom: 22px; }
 .note-editor .save { color: #fff; background: var(--mist); border: 0; }
 .note-editor .cancel { color: var(--mist); background: #fff; border: 1px solid var(--slate); }
 
+/* 刪除一段紀錄 */
+.seg-actions { white-space: nowrap; }
+.delete-seg { margin-left: 2px; font: inherit; font-size: 12px; color: #A0899A; background: transparent; border: 0;
+              padding: 0 4px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.delete-seg:hover { color: #A63A5E; }
+.delete-seg:focus-visible, .confirm-delete button:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; border-radius: 4px; }
+.confirm-delete { margin-left: 8px; font-size: 12.5px; color: #A63A5E; }
+.confirm-delete button { font: inherit; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 2px 10px; margin-left: 4px; cursor: pointer; }
+.confirm-delete .cancel-delete { color: var(--mist); background: #fff; border: 1px solid var(--slate); }
+.confirm-delete .do-delete { color: #fff; background: #C2577A; border: 0; }
+.field input.text { width: 196px; }
+.field[hidden] { display: none; }
+
 /* 側欄：快捷鍵 */
 .keys-panel { margin-top: 14px; padding: 14px 16px; }
 .keys-panel h2 { font-family: var(--round); font-weight: 400; font-size: 17px; margin: 0 0 6px; }

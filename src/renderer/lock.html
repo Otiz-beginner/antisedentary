@@ -6,13 +6,40 @@
 <title>休息一下</title>
 <link rel="stylesheet" href="water.css">
 <style>
-  /* 疊在 Windows 壓克力模糊上面的深色遮罩 */
-  html, body { background: rgba(46,58,85,.55); cursor: none; }
+  /* 背景：鎖定前拍下的螢幕（模糊）或內建桌布；兩個都沒有時是這個漸層 */
+  html, body { cursor: none; overflow: hidden; }
+  body { background: linear-gradient(160deg, #7B9DC8, #B9B8F0 60%, #D3D5FF); }
+  .backdrop { position: fixed; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity .6s ease; }
+  .backdrop.ready { opacity: 1; }
+  /* 模糊時放大一點，邊緣才不會透出模糊後的淡邊 */
+  .backdrop.blur { filter: blur(28px) saturate(1.1); transform: scale(1.08); }
+  .backdrop.wallpaper { background-image: url("rest-wallpaper.svg"); }
+  .shade { position: fixed; inset: 0; background: rgba(46,58,85,.38); }
+  .backdrop.wallpaper ~ .shade { background: rgba(46,58,85,.12); }
+
+  /* 中央的大標語：POP 風格的粗字、白字加深色描邊與錯位陰影 */
+  .slogan {
+    position: fixed; left: 0; right: 0; top: 40%; transform: translateY(-50%);
+    margin: 0; padding: 0 5vw; text-align: center;
+    font-family: "Luckiest Guy", "Huninn", "Microsoft JhengHei", sans-serif;
+    font-size: clamp(56px, 9vw, 180px); line-height: 1.1; letter-spacing: .02em;
+    color: #FFFFFF; -webkit-text-stroke: .06em #2E3A55; paint-order: stroke fill;
+    text-shadow: .07em .07em 0 #D2BAFF, .1em .1em 0 #2E3A55;
+    overflow-wrap: anywhere;
+    animation: bob 3.2s ease-in-out infinite;
+  }
+  .slogan[hidden] { display: none; }
+  @keyframes bob { 0%, 100% { transform: translateY(-50%) rotate(-2deg); } 50% { transform: translateY(-54%) rotate(1.5deg); } }
+  @media (prefers-reduced-motion: reduce) { .slogan { animation: none; transform: translateY(-50%) rotate(-2deg); } }
+
   .card { right: 32px; bottom: 64px; width: 260px; }
   .card[hidden] { display: none; }
 </style>
 </head>
 <body>
+  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+  <div class="shade" aria-hidden="true"></div>
+  <p class="slogan" id="slogan" hidden></p>
   <div class="card rest" id="card" role="status" aria-label="休息一下" hidden>
     <div class="tank"></div>
     <p class="phrase">休息一下</p>

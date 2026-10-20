@@ -56,3 +56,9 @@ test('each item has a button to write or edit its note', () => {
   assert.ok(html.includes('<button type="button" class="edit-note" data-id="42">補寫</button>'));
   assert.ok(html.includes('<button type="button" class="edit-note" data-id="43">修改</button>'));
 });
+
+test('each saved item has a delete button', () => {
+  const html = renderDayList([seg({ id: 42 })]);
+  assert.ok(html.includes('<button type="button" class="delete-seg" data-id="42">刪除</button>'));
+  assert.ok(!renderDayList([seg()]).includes('delete-seg'));
+});

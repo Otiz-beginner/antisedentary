@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('api', {
   breakNow: (note) => ipcRenderer.invoke('break:now', String(note ?? '')),
   toggleFocus: () => ipcRenderer.invoke('focus:toggle'),
   updateNote: (id, note) => ipcRenderer.invoke('segment:note', Number(id), String(note ?? '')),
+  deleteSegment: (id) => ipcRenderer.invoke('segment:delete', Number(id)),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   // 使用教學
   getHotkeys: () => ipcRenderer.invoke('hotkeys:get'),

@@ -1,6 +1,6 @@
 {
   "name": "antisedentary",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Antisedentary：防久坐小程式",
   "main": "src/main/main.js",
   "scripts": {
@@ -66,5 +66,8 @@
     "type": "git",
     "url": "https://github.com/Otiz-beginner/antisedentary.git"
   },
-  "homepage": "https://github.com/Otiz-beginner/antisedentary"
+  "homepage": "https://github.com/Otiz-beginner/antisedentary",
+  "dependencies": {
+    "@fontsource/luckiest-guy": "^5.3.0"
+  }
 }

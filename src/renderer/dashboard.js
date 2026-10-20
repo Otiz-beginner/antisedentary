@@ -195,7 +195,7 @@ let lastFocus = null;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // 設定分三群，依這個順序顯示
-const GROUPS = [['hotkey', '快捷鍵'], ['time', '時間設定'], ['other', '其他']];
+const GROUPS = [['hotkey', '快捷鍵'], ['time', '時間設定'], ['rest', '休息畫面'], ['other', '其他']];
 
 function renderSettings(fields, values, keys) {
   $('settings-fields').innerHTML = GROUPS.map(([group, name]) => `
@@ -211,6 +211,13 @@ function renderField(f, values, keys) {
       control = `<select id="set-${f.key}" name="${f.key}" aria-describedby="err-${f.key}">
            ${keys.map((k) => `<option value="${k.key}"${k.key === values[f.key] ? ' selected' : ''}>${escapeHtml(k.label)}</option>`).join('')}
          </select>`;
+    } else if (f.kind === 'choice') {
+      control = `<select id="set-${f.key}" name="${f.key}" aria-describedby="err-${f.key}">
+           ${f.options.map((o) => `<option value="${o.value}"${o.value === values[f.key] ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+         </select>`;
+    } else if (f.kind === 'text') {
+      control = `<input type="text" class="text" id="set-${f.key}" name="${f.key}" maxlength="${f.max}"
+                value="${escapeHtml(values[f.key] ?? '')}" placeholder="例如：去裝水" aria-describedby="err-${f.key}">`;
     } else if (f.kind === 'toggle') {
       control = `<span class="switch"><input type="checkbox" role="switch" id="set-${f.key}" name="${f.key}"
                  ${values[f.key] ? 'checked' : ''} aria-describedby="err-${f.key}"><span class="track-ui" aria-hidden="true"></span></span>`;
@@ -246,6 +253,15 @@ $('settings-fields').addEventListener('click', (e) => {
   $(btn.getAttribute('aria-controls')).hidden = !open;
 });
 
+// 「自訂標語」只有在「休息標語」選「自己輸入」時才需要
+function syncSloganText() {
+  const mode = $('set-restSlogan');
+  const text = $('set-restSloganText');
+  if (!mode || !text) return;
+  text.closest('.field').hidden = mode.value !== 'custom';
+}
+$('settings-fields').addEventListener('change', (e) => { if (e.target.id === 'set-restSlogan') syncSloganText(); });
+
 function showErrors(errors) {
   document.querySelectorAll('#settings-fields [name]').forEach((el) => {
     const msg = errors[el.name] || '';
@@ -258,6 +274,7 @@ async function openSettings() {
   const { fields, values, defaults, keys } = await window.api.getSettings();
   settingsDefaults = defaults;
   renderSettings(fields, values, keys);
+  syncSloganText();
   $('settings-status').textContent = '';
   lastFocus = document.activeElement;
   $('settings-modal').hidden = false;
@@ -277,7 +294,7 @@ $('settings-modal').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); closeSettings(); return; }
   if (e.key !== 'Tab') return;
   // 焦點留在面板裡
-  const focusable = [...$('settings-modal').querySelectorAll('button, input, select')].filter((el) => !el.disabled);
+  const focusable = [...$('settings-modal').querySelectorAll('button, input, select')].filter((el) => !el.disabled && el.offsetParent !== null);
   const first = focusable[0];
   const last = focusable.at(-1);
   if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
@@ -307,6 +324,7 @@ $('settings-reset').addEventListener('click', () => {
     if (el.type === 'checkbox') el.checked = Boolean(value);
     else el.value = value;
   }
+  syncSloganText();
   showErrors({});
   $('settings-status').textContent = '已填回預設值，按「儲存設定」才會生效';
 });
@@ -324,7 +342,7 @@ loadHotkeys();
 updateCup();
 setInterval(updateCup, 1000);
 // 視窗拿回焦點時重新整理；正在補寫紀錄時不要把編輯框洗掉
-window.addEventListener('focus', () => { if (!document.querySelector('.note-editor')) load(); });
+window.addEventListener('focus', () => { if (!document.querySelector('.note-editor, .confirm-delete')) load(); });
 
 // ---------- 右側欄：Lock-in 專注模式按鈕 ----------
 function updateFocus(phase) {
@@ -359,6 +377,25 @@ $('day').addEventListener('click', async (e) => {
     box.focus();
     return;
   }
+  // 刪除：先在同一行問一次，按「刪除」才真的刪
+  const del = e.target.closest('.delete-seg');
+  if (del) {
+    const actions = del.closest('.seg-actions');
+    actions.innerHTML = `<span class="confirm-delete" role="group" aria-label="確定要刪除這一段嗎？">確定刪除？
+        <button type="button" class="cancel-delete">取消</button>
+        <button type="button" class="do-delete" data-id="${Number(del.dataset.id)}">刪除</button></span>`;
+    actions.querySelector('.cancel-delete').focus();
+    return;
+  }
+  const doDel = e.target.closest('.do-delete');
+  if (doDel) {
+    doDel.disabled = true;
+    await window.api.deleteSegment(doDel.dataset.id);
+    load();
+    updateCup();
+    return;
+  }
+  if (e.target.closest('.cancel-delete')) { load(); return; }
   const save = e.target.closest('.note-editor .save');
   if (save) {
     const text = save.closest('.note-editor').querySelector('textarea').value;
@@ -370,7 +407,7 @@ $('day').addEventListener('click', async (e) => {
   if (e.target.closest('.note-editor .cancel')) load();
 });
 $('day').addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && e.target.closest('.note-editor')) load();
+  if (e.key === 'Escape' && (e.target.closest('.note-editor') || e.target.closest('.confirm-delete'))) load();
 });
 
 // 點時間軸上的區塊：捲到下面清單裡那一段，並亮一下
