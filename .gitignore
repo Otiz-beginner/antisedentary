@@ -3,3 +3,4 @@ dist/
 .superpowers/
 resources/lockhelper.exe
 src/renderer/fonts/
+release/

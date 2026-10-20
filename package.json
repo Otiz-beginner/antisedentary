@@ -1,7 +1,7 @@
 {
   "name": "antisedentary",
   "version": "0.4.0",
-  "description": "防久坐小程式",
+  "description": "Antisedentary：防久坐小程式",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -10,7 +10,8 @@
     "build:helper": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-helper.ps1",
     "fonts": "node scripts/copy-fonts.js",
     "prestart": "node scripts/copy-fonts.js",
-    "dist": "npm run build:helper && node scripts/copy-fonts.js && electron-builder --win dir"
+    "dist": "npm run build:helper && node scripts/copy-fonts.js && electron-builder --win dir",
+    "dist:installer": "npm run build:helper && node scripts/copy-fonts.js && electron-builder --win nsis -c.directories.output=release"
   },
   "type": "commonjs",
   "devDependencies": {
@@ -41,6 +42,29 @@
     ],
     "directories": {
       "output": "dist"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Antisedentary",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "installerLanguages": [
+        "zh_TW"
+      ],
+      "language": "1028",
+      "artifactName": "Antisedentary-Setup-${version}.exe",
+      "include": "build/installer.nsh"
     }
-  }
+  },
+  "author": "Otiz-beginner",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Otiz-beginner/antisedentary.git"
+  },
+  "homepage": "https://github.com/Otiz-beginner/antisedentary"
 }
