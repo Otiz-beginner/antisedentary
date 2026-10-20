@@ -5,6 +5,7 @@ const path = require('node:path');
 const { app, globalShortcut, ipcMain, powerMonitor } = require('electron');
 const { getConfig } = require('../core/config');
 const { DEFAULTS, FIELDS, validate } = require('../core/settings');
+const hotkeys = require('../core/hotkeys');
 const { openDb, dailyBackup } = require('./db');
 const { createLogger } = require('./logger');
 const { createController } = require('./controller');
@@ -12,7 +13,6 @@ const { startInputLock } = require('./inputLock');
 const { createWindows } = require('./windows');
 const { createTray } = require('./tray');
 
-const MEETING_HOTKEY = 'Control+Alt+Shift+M';
 const HEARTBEAT_MS = 10 * 60 * 1000;
 
 // `Antisedentary.exe --quit`：請正在跑的那一個存好檔再結束（更新程式前用）
@@ -101,9 +101,15 @@ function start() {
     onQuit: () => { log('quit from tray'); app.quit(); },
   });
 
-  if (!globalShortcut.register(MEETING_HOTKEY, toggleMeeting)) {
-    log(`could not register ${MEETING_HOTKEY}`);
+  // 開會模式快捷鍵（平常用 Electron 全域快捷鍵；鎖定中由 lockhelper 偵測）
+  let meetingAccelerator = null;
+  function applyHotkeys() {
+    if (meetingAccelerator) globalShortcut.unregister(meetingAccelerator);
+    meetingAccelerator = hotkeys.accelerator(settings.meetingKey);
+    if (!globalShortcut.register(meetingAccelerator, toggleMeeting)) log(`could not register ${meetingAccelerator}`);
+    controller.setHotkeys({ meetingVk: hotkeys.vk(settings.meetingKey), escapeVk: hotkeys.vk(settings.escapeKey) });
   }
+  applyHotkeys();
 
   ipcMain.on('note:update', (_e, text) => controller.setDraftNote(text));
   ipcMain.on('break:start', () => controller.dispatch({ type: 'startBreak', now: Date.now(), source: 'card' }));
@@ -124,7 +130,15 @@ function start() {
     cycleMs: config.workMs + config.reminderMs,
     lockMs: config.lockMs,
   }));
-  ipcMain.handle('settings:get', () => ({ fields: FIELDS, values: settings, defaults: DEFAULTS }));
+  ipcMain.handle('settings:get', () => ({
+    fields: FIELDS, values: settings, defaults: DEFAULTS,
+    keys: hotkeys.KEYS.map((key) => ({ key, label: hotkeys.label(key) })),
+  }));
+  ipcMain.handle('hotkeys:get', () => ({
+    meeting: hotkeys.label(settings.meetingKey), escape: hotkeys.label(settings.escapeKey),
+  }));
+  ipcMain.on('tutorial:open', () => windows.openTutorial());
+  ipcMain.on('tutorial:done', () => { db.setState('tutorialSeen', Date.now()); windows.closeTutorial(); });
   ipcMain.handle('settings:save', (_e, values) => {
     const result = validate(values);
     if (!result.ok) return { ok: false, errors: result.errors };
@@ -132,6 +146,7 @@ function start() {
     db.saveSettings(settings);
     config = getConfig(process.env, settings);
     controller.setConfig(config);
+    applyHotkeys();
     log('settings saved', settings);
     return { ok: true, values: settings };
   });
@@ -168,6 +183,16 @@ function start() {
   };
   app.on('before-quit', shutdown('before-quit'));
   windows.onSessionEnd(shutdown('session-end'));
+
+  // 第一次使用（完全沒有紀錄、也沒存過設定）才自動打開新手教學；
+  // 已經在用的人升級上來不跳，直接記成看過了
+  if (!db.getState('tutorialSeen')) {
+    const firstRun = db.listSegments().length === 0 && Object.keys(db.getSettings()).length === 0;
+    if (firstRun) windows.openTutorial();
+    else db.setState('tutorialSeen', 'upgraded');
+  }
+  // 教學視窗被關掉（不管是按「開始使用」還是右上角 X）就算看過了
+  windows.onTutorialClosed(() => { if (!closed) db.setState('tutorialSeen', Date.now()); });
 
   if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true });
 }

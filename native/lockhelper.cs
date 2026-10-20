@@ -1,7 +1,7 @@
-// lockhelper.exe --max-seconds N
+// lockhelper.exe --max-seconds N [--meeting-vk VK] [--escape-vk VK]
 // 鎖定休息時擋住滑鼠和鍵盤（spec §4.3）。
 // 安全保險：超過 N 秒、stdin 關閉（父行程死掉）或收到 STOP 都會立刻結束；行程結束時 Windows 會自動移除 hook。
-// Ctrl+Alt+Shift+M（開會模式）會在 stdout 印出 MEETING。
+// Ctrl+Alt+Shift+開會鍵（預設 M）印出 MEETING；Ctrl+Alt+Shift+緊急逃出鍵（預設 E）印出 ESCAPE。
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -14,7 +14,8 @@ static class LockHelper
     const int WH_MOUSE_LL = 14;
     const int WM_KEYDOWN = 0x0100, WM_KEYUP = 0x0101, WM_SYSKEYDOWN = 0x0104, WM_SYSKEYUP = 0x0105;
     const int WM_LBUTTONUP = 0x0202, WM_RBUTTONUP = 0x0205, WM_MBUTTONUP = 0x0208, WM_XBUTTONUP = 0x020C;
-    const int VK_M = 0x4D;
+    static uint meetingVk = 0x4D; // M
+    static uint escapeVk = 0x45;  // E
 
     delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -57,7 +58,11 @@ static class LockHelper
         if (vk == 0x11 || vk == 0xA2 || vk == 0xA3) ctrl = down || (!up && ctrl);
         if (vk == 0x12 || vk == 0xA4 || vk == 0xA5) alt = down || (!up && alt);
         if (vk == 0x10 || vk == 0xA0 || vk == 0xA1) shift = down || (!up && shift);
-        if (down && vk == VK_M && ctrl && alt && shift) ThreadPool.QueueUserWorkItem(_ => Send("MEETING"));
+        if (down && ctrl && alt && shift)
+        {
+            if (vk == meetingVk) ThreadPool.QueueUserWorkItem(_ => Send("MEETING"));
+            else if (vk == escapeVk) ThreadPool.QueueUserWorkItem(_ => Send("ESCAPE"));
+        }
 
         // 放開按鍵的事件放行：鎖定前已經按住的鍵，解鎖後才不會卡住
         if (up) return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
@@ -77,7 +82,12 @@ static class LockHelper
     {
         int maxSeconds = 185;
         for (int i = 0; i + 1 < args.Length; i++)
+        {
+            uint key;
             if (args[i] == "--max-seconds") int.TryParse(args[i + 1], out maxSeconds);
+            else if (args[i] == "--meeting-vk" && uint.TryParse(args[i + 1], out key) && key > 0 && key < 0xFF) meetingVk = key;
+            else if (args[i] == "--escape-vk" && uint.TryParse(args[i + 1], out key) && key > 0 && key < 0xFF) escapeVk = key;
+        }
         if (maxSeconds <= 0 || maxSeconds > 600) maxSeconds = 185;
 
         stdout = new StreamWriter(Console.OpenStandardOutput());

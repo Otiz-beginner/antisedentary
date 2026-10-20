@@ -8,6 +8,8 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   let draft = '';
   let lockHandle = null;
   let quitted = false;
+  // 鎖定中由 lockhelper 偵測的兩組快捷鍵（Windows virtual-key code），預設 M、E
+  let hotkeys = { meetingVk: 0x4d, escapeVk: 0x45 };
 
   function run(effect) {
     switch (effect.type) {
@@ -41,7 +43,10 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
         try {
           lockHandle = startLock({
             maxSeconds: Math.ceil(config.lockMs / 1000) + 5,
+            meetingVk: hotkeys.meetingVk,
+            escapeVk: hotkeys.escapeVk,
             onMeetingHotkey: () => dispatch({ type: 'meetingOn', now: now() }),
+            onEscapeHotkey: () => dispatch({ type: 'escape', now: now() }),
           });
         } catch (err) {
           console.error('input lock failed to start:', err);
@@ -78,6 +83,7 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
     },
     // 使用者在 dashboard 改了設定：之後的判斷都用新的時間
     setConfig: (next) => { config = next; },
+    setHotkeys: (next) => { hotkeys = { ...next }; },
     // 回答「剛剛有站起來嗎？」
     answer: (stood) => dispatch({ type: 'answer', now: now(), stood: Boolean(stood) }),
     // 只有提醒卡出現時才收草稿：存檔後才晚到的草稿不能跑進下一段

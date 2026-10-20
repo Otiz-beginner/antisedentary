@@ -142,6 +142,11 @@ function step(state, input, config) {
       return { state: meeting, effects: [] };
     }
 
+    case 'escape':
+      // 緊急逃出：只結束這次休息，之後照常計時提醒
+      if (state.phase !== 'locked') return same;
+      return { state: away(now), effects: [{ type: 'unlock' }] };
+
     case 'meetingOff':
       if (state.phase !== 'meeting') return same;
       return { state: away(now), effects: [{ type: 'saveMeeting', startedAt: state.meetingStart, endedAt: now }] };

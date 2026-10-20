@@ -115,6 +115,33 @@ function createWindows({ log = () => {} } = {}) {
     dashboard.once('ready-to-show', () => dashboard.show());
   }
 
+  // 使用教學：獨立視窗，置中
+  let tutorial = null;
+  let onTutorialClosedFn = () => {};
+  function openTutorial() {
+    if (tutorial && !tutorial.isDestroyed()) {
+      tutorial.show();
+      tutorial.focus();
+      return;
+    }
+    tutorial = new BrowserWindow({
+      width: 760, height: 580, center: true, resizable: false, maximizable: false, minimizable: false,
+      title: '使用教學', backgroundColor: '#EEF0F8', autoHideMenuBar: true, show: false, webPreferences,
+    });
+    tutorial.setMenu(null);
+    watch(tutorial, 'tutorial', log);
+    tutorial.loadFile(path.join(RENDERER, 'tutorial.html'));
+    tutorial.once('ready-to-show', () => { tutorial.show(); tutorial.focus(); });
+    tutorial.on('closed', () => { tutorial = null; onTutorialClosedFn(); });
+    log('tutorial opened');
+  }
+  function closeTutorial() {
+    if (tutorial && !tutorial.isDestroyed()) tutorial.close();
+  }
+  function onTutorialClosed(fn) {
+    onTutorialClosedFn = fn;
+  }
+
   // Windows 關機或登出時，Electron 只會在視窗上發出 session-end。
   // 用一個永遠不顯示、也不會被關掉的小視窗來接這個訊號。
   const keeper = new BrowserWindow({ width: 1, height: 1, show: false, skipTaskbar: true, frame: false });
@@ -126,6 +153,7 @@ function createWindows({ log = () => {} } = {}) {
     showReminder: reminder.show, hideReminder: reminder.hide,
     showQuestion: question.show, hideQuestion: question.hide,
     showLock, hideLock, openDashboard, onSessionEnd,
+    openTutorial, closeTutorial, onTutorialClosed,
   };
 }
 

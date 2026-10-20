@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:">
+<title>使用教學</title>
+<link rel="stylesheet" href="water.css">
+<link rel="stylesheet" href="tutorial.css">
+</head>
+<body>
+<div class="tour" role="region" aria-roledescription="教學" aria-label="使用教學">
+
+  <!-- 1 歡迎 -->
+  <section class="slide" aria-labelledby="t1">
+    <div class="stage">
+      <div class="big-cup"><div class="tank"></div><span class="drop" aria-hidden="true"></span></div>
+    </div>
+    <h1 id="t1">久坐的時候，讓水提醒你</h1>
+    <p>專心工作時很容易一坐就兩三個小時。這個程式會幫你計時，時間到了請你站起來動一動、看看遠方，休息完再回來。</p>
+  </section>
+
+  <!-- 2 開始計時 -->
+  <section class="slide" aria-labelledby="t2">
+    <div class="stage">
+      <div class="screen">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="lines"><b></b><b></b><b class="short"></b><b></b><b class="typing"></b></div>
+        <span class="cursor" aria-hidden="true"></span>
+      </div>
+      <div class="mini-cup"><div class="tank"></div><span class="mini-label">這一段已經工作</span><span class="mini-num count-up">12</span></div>
+    </div>
+    <h1 id="t2">一碰滑鼠鍵盤，就開始計時</h1>
+    <p>程式在背景安靜地看你有沒有在用電腦。打開「紀錄」頁，右邊的水杯會隨著工作時間慢慢漲高。</p>
+  </section>
+
+  <!-- 3 提醒卡 -->
+  <section class="slide" aria-labelledby="t3">
+    <div class="stage">
+      <div class="screen">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="lines"><b></b><b></b><b class="short"></b><b></b></div>
+        <div class="card demo-card slide-up draining">
+          <div class="tank"></div>
+          <h3>快到休息時間了</h3>
+          <div class="fake-input"><span class="type-in">整理了 APR 的 DRC</span></div>
+          <div class="row"><span class="fake-btn">開始休息</span></div>
+        </div>
+      </div>
+    </div>
+    <h1 id="t3">快到時間時，右下角會浮出提醒卡</h1>
+    <p>卡片不會搶走焦點，你可以把手邊的事收個尾，順手寫下這段做了什麼。卡片上的水退光，就開始休息。</p>
+  </section>
+
+  <!-- 4 休息鎖定 -->
+  <section class="slide" aria-labelledby="t4">
+    <div class="stage">
+      <div class="screen dim">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="lines"><b></b><b></b><b class="short"></b><b></b></div>
+        <div class="veil"></div>
+        <div class="card rest demo-card filling">
+          <div class="tank"></div>
+          <p class="phrase">休息一下</p>
+          <div class="clock">2:41</div>
+        </div>
+      </div>
+    </div>
+    <h1 id="t4">休息時，滑鼠和鍵盤會暫停幾分鐘</h1>
+    <p>畫面變暗、變模糊，水杯慢慢補滿。這是站起來走走、看看遠方的時間。水滿了就自動解鎖，計時重新開始。</p>
+  </section>
+
+  <!-- 5 離開座位 -->
+  <section class="slide" aria-labelledby="t5">
+    <div class="stage">
+      <div class="away-row">
+        <div class="phone" aria-hidden="true"><span></span></div>
+        <span class="pause-tag">暫停計時</span>
+      </div>
+      <div class="card demo-card question pop-in">
+        <div class="tank"></div>
+        <h3>剛剛有站起來嗎？</h3>
+        <div class="row two"><span class="fake-btn ghost">沒有，還坐著</span><span class="fake-btn">有，站起來了</span></div>
+      </div>
+    </div>
+    <h1 id="t5">離開一下，回來時問你一句</h1>
+    <p>一陣子沒碰滑鼠鍵盤會先暫停，不會歸零。回來時右下角會問「剛剛有站起來嗎？」：站起來了就重新計時；只是滑手機、講話，就接著算。</p>
+  </section>
+
+  <!-- 6 開會與緊急逃出 -->
+  <section class="slide" aria-labelledby="t6">
+    <div class="stage keys-stage">
+      <div class="key-card">
+        <p class="key-title">開會模式</p>
+        <p class="keys" id="key-meeting">Ctrl + Alt + Shift + M</p>
+        <p class="key-desc">開會、簡報時按一下，就不會提醒也不會鎖定；再按一次關閉。</p>
+      </div>
+      <div class="key-card">
+        <p class="key-title">緊急逃出</p>
+        <p class="keys" id="key-escape">Ctrl + Alt + Shift + E</p>
+        <p class="key-desc">休息時遇到急事，按下就立刻解鎖，結束這次休息。</p>
+      </div>
+    </div>
+    <h1 id="t6">開會和急事，各有一組快捷鍵</h1>
+    <p>這兩組快捷鍵都可以在「紀錄」頁左邊的「設定」裡換成你習慣的組合。</p>
+  </section>
+
+  <!-- 7 紀錄頁 -->
+  <section class="slide" aria-labelledby="t7">
+    <div class="stage">
+      <div class="dash">
+        <div class="dash-rail"><i></i><i></i><i></i></div>
+        <div class="dash-main">
+          <div class="dash-cells">
+            <b></b><b></b><b class="l1"></b><b></b><b class="l2"></b><b></b><b class="l3"></b>
+            <b class="l1"></b><b></b><b class="l2"></b><b class="l3"></b><b></b><b class="l4"></b><b class="l2"></b>
+          </div>
+          <div class="dash-list"><span></span><span></span><span class="short"></span></div>
+        </div>
+        <div class="dash-side"><div class="mini-tank"></div><div class="dash-early">提早休息</div></div>
+      </div>
+    </div>
+    <h1 id="t7">從系統匣的水滴，打開「紀錄」</h1>
+    <p>日曆看得到每天工作幾段、每段做了什麼。右邊可以提早休息；左邊的選單有「設定」和這份「使用教學」，隨時可以再打開。</p>
+  </section>
+
+  <footer class="nav">
+    <button type="button" class="ghost" id="prev">上一步</button>
+    <div class="dots" id="dots" aria-hidden="true"></div>
+    <span class="sr-only" id="progress" aria-live="polite"></span>
+    <button type="button" id="next">下一步</button>
+  </footer>
+</div>
+<script src="tutorial.js"></script>
+</body>
+</html>

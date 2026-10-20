@@ -5,19 +5,50 @@ const { DEFAULTS, FIELDS, validate, toConfig } = require('../src/core/settings')
 
 const M = 60000;
 
-test('defaults match the original timings', () => {
+test('defaults match the original timings plus the two hotkeys', () => {
   assert.deepEqual(DEFAULTS, {
     cycleMinutes: 32, reminderMinutes: 3, restMinutes: 3,
     idlePauseMinutes: 3, askMaxMinutes: 30, askTimeoutSeconds: 60,
+    meetingKey: 'M', escapeKey: 'E',
   });
 });
 
-test('every field has a label, unit and range', () => {
+test('every field has a short name, a longer help text and a kind', () => {
+  assert.deepEqual(FIELDS.map((f) => f.short),
+    ['工作時長', '收尾時間', '休息時長', '暫停判定', '手機上限', '回答等待', '開會模式快捷鍵', '緊急逃出快捷鍵']);
   for (const key of Object.keys(DEFAULTS)) {
     const f = FIELDS.find((x) => x.key === key);
     assert.ok(f, key);
-    assert.ok(f.label && f.unit && f.min < f.max, key);
+    assert.ok(f.help && f.help.length > 15, key);
+    assert.ok(['minutes', 'seconds', 'hotkey'].includes(f.kind), key);
+    if (f.kind !== 'hotkey') assert.ok(f.unit && f.min < f.max, key);
   }
+});
+
+test('hotkeys must come from the list', () => {
+  const r = validate({ ...DEFAULTS, meetingKey: 'Q' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.meetingKey);
+});
+
+test('the two hotkeys must be different', () => {
+  const r = validate({ ...DEFAULTS, meetingKey: 'K', escapeKey: 'K' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.escapeKey);
+});
+
+test('a chosen hotkey is kept', () => {
+  const r = validate({ ...DEFAULTS, meetingKey: 'J', escapeKey: '9' });
+  assert.equal(r.ok, true);
+  assert.equal(r.value.meetingKey, 'J');
+  assert.equal(r.value.escapeKey, '9');
+});
+
+test('settings saved by an older version get the default hotkeys', () => {
+  const old = { cycleMinutes: 30, reminderMinutes: 3, restMinutes: 3, idlePauseMinutes: 2, askMaxMinutes: 40, askTimeoutSeconds: 60 };
+  const r = validate(old);
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value, { ...old, meetingKey: 'M', escapeKey: 'E' });
 });
 
 test('toConfig turns default settings into the original config', () => {

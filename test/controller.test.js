@@ -229,3 +229,26 @@ test('a dashboard note does not leak when the break is ignored', () => {
   ctl.dispatch({ type: 'startBreak', now: clock.t, source: 'tray' });
   assert.equal(segments.at(-1).note, '');
 });
+
+test('lock passes the hotkey codes and escape ends the break without meeting mode', () => {
+  const { ctl, calls, locks, advance } = setup();
+  ctl.setHotkeys({ meetingVk: 0x4a, escapeVk: 0x39 });
+  ctl.tick();
+  advance(32 * M);
+  assert.equal(locks[0].opts.meetingVk, 0x4a);
+  assert.equal(locks[0].opts.escapeVk, 0x39);
+  locks[0].opts.onEscapeHotkey();
+  assert.equal(ctl.phase, 'away');
+  assert.equal(ctl.inMeeting, false);
+  assert.equal(locks[0].stopped, 1);
+  assert.ok(calls.some((c) => c[0] === 'hideLock'));
+  assert.ok(!calls.some((c) => c[0] === 'meeting'));
+});
+
+test('default hotkey codes are M and E', () => {
+  const { ctl, locks, advance } = setup();
+  ctl.tick();
+  advance(32 * M);
+  assert.equal(locks[0].opts.meetingVk, 0x4d);
+  assert.equal(locks[0].opts.escapeVk, 0x45);
+});

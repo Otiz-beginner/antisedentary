@@ -17,5 +17,9 @@ contextBridge.exposeInMainWorld('api', {
   getStatus: () => ipcRenderer.invoke('status:get'),
   breakNow: (note) => ipcRenderer.invoke('break:now', String(note ?? '')),
   getSettings: () => ipcRenderer.invoke('settings:get'),
+  // 使用教學
+  getHotkeys: () => ipcRenderer.invoke('hotkeys:get'),
+  openTutorial: () => ipcRenderer.send('tutorial:open'),
+  finishTutorial: () => ipcRenderer.send('tutorial:done'),
   saveSettings: (values) => ipcRenderer.invoke('settings:save', values),
 });

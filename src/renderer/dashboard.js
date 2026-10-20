@@ -168,36 +168,101 @@ $('early-yes').addEventListener('click', async () => {
   updateCup();
 });
 
-// 左側設定：欄位、範圍、說明都由 main 提供，存檔前由 main 再驗證一次
-let settingsDefaults = {};
+// ---------- 左側欄：可以展開 ----------
+const RAIL_KEY = 'antisedentary.railOpen';
+function setRail(open) {
+  document.body.classList.toggle('rail-open', open);
+  $('rail-toggle').setAttribute('aria-expanded', String(open));
+  $('rail-toggle').setAttribute('aria-label', open ? '收起選單' : '展開選單');
+  try { localStorage.setItem(RAIL_KEY, open ? '1' : '0'); } catch { /* 記不住也沒關係 */ }
+}
+let railOpen = false;
+try { railOpen = localStorage.getItem(RAIL_KEY) === '1'; } catch { /* 預設收起 */ }
+setRail(railOpen);
+$('rail-toggle').addEventListener('click', () => setRail(!document.body.classList.contains('rail-open')));
+$('open-tutorial').addEventListener('click', () => window.api.openTutorial());
 
-function renderSettings(fields, values) {
-  $('settings-fields').innerHTML = fields.map((f) => `
+// ---------- 設定：浮在中央的面板 ----------
+// 欄位、範圍、說明都由 main 提供，存檔前由 main 再驗證一次
+let settingsDefaults = {};
+let lastFocus = null;
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function renderSettings(fields, values, keys) {
+  $('settings-fields').innerHTML = fields.map((f) => {
+    const control = f.kind === 'hotkey'
+      ? `<select id="set-${f.key}" name="${f.key}" aria-describedby="err-${f.key}">
+           ${keys.map((k) => `<option value="${k.key}"${k.key === values[f.key] ? ' selected' : ''}>${escapeHtml(k.label)}</option>`).join('')}
+         </select>`
+      : `<input type="number" id="set-${f.key}" name="${f.key}" min="${f.min}" max="${f.max}" step="1"
+                value="${values[f.key]}" aria-describedby="err-${f.key}"><span class="unit">${f.unit}</span>`;
+    return `
     <div class="field">
-      <label for="set-${f.key}">${f.label}</label>
-      <span class="hint" id="hint-${f.key}">${f.hint}</span>
-      <div class="input-row">
-        <input type="number" id="set-${f.key}" name="${f.key}" min="${f.min}" max="${f.max}" step="1"
-               value="${values[f.key]}" aria-describedby="hint-${f.key} err-${f.key}">
-        <span class="unit">${f.unit}</span>
+      <div class="field-row">
+        <div class="field-name">
+          <label for="set-${f.key}">${escapeHtml(f.short)}</label>
+          <button type="button" class="help-btn" aria-expanded="false" aria-controls="help-${f.key}"
+                  aria-label="${escapeHtml(f.short)}的說明">?</button>
+        </div>
+        ${control}
       </div>
+      <p class="help-text" id="help-${f.key}" hidden>${escapeHtml(f.help)}</p>
       <span class="error" id="err-${f.key}"></span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
+// 點「?」展開說明，再點一次收起；同時只開一個
+$('settings-fields').addEventListener('click', (e) => {
+  const btn = e.target.closest('.help-btn');
+  if (!btn) return;
+  const open = btn.getAttribute('aria-expanded') !== 'true';
+  document.querySelectorAll('#settings-fields .help-btn').forEach((b) => {
+    b.setAttribute('aria-expanded', 'false');
+    $(b.getAttribute('aria-controls')).hidden = true;
+  });
+  btn.setAttribute('aria-expanded', String(open));
+  $(btn.getAttribute('aria-controls')).hidden = !open;
+});
+
 function showErrors(errors) {
-  document.querySelectorAll('#settings-fields input').forEach((input) => {
-    const msg = errors[input.name] || '';
-    input.setAttribute('aria-invalid', msg ? 'true' : 'false');
-    $(`err-${input.name}`).textContent = msg;
+  document.querySelectorAll('#settings-fields [name]').forEach((el) => {
+    const msg = errors[el.name] || '';
+    el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    $(`err-${el.name}`).textContent = msg;
   });
 }
 
-async function loadSettings() {
-  const { fields, values, defaults } = await window.api.getSettings();
+async function openSettings() {
+  const { fields, values, defaults, keys } = await window.api.getSettings();
   settingsDefaults = defaults;
-  renderSettings(fields, values);
+  renderSettings(fields, values, keys);
+  $('settings-status').textContent = '';
+  lastFocus = document.activeElement;
+  $('settings-modal').hidden = false;
+  $('settings-fields').querySelector('[name]').focus();
 }
+
+function closeSettings() {
+  $('settings-modal').hidden = true;
+  if (lastFocus) lastFocus.focus();
+}
+
+$('open-settings').addEventListener('click', openSettings);
+$('settings-close').addEventListener('click', closeSettings);
+// 點面板外面就關閉
+$('settings-modal').addEventListener('mousedown', (e) => { if (e.target === $('settings-modal')) closeSettings(); });
+$('settings-modal').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); closeSettings(); return; }
+  if (e.key !== 'Tab') return;
+  // 焦點留在面板裡
+  const focusable = [...$('settings-modal').querySelectorAll('button, input, select')].filter((el) => !el.disabled);
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 $('settings-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -220,7 +285,6 @@ $('settings-reset').addEventListener('click', () => {
 });
 
 load();
-loadSettings();
 updateCup();
 setInterval(updateCup, 1000);
 window.addEventListener('focus', load);

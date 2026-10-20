@@ -31,7 +31,14 @@ function openDb(filePath) {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       json TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS app_state (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
+  const selectState = db.prepare('SELECT value FROM app_state WHERE key = ?');
+  const upsertState = db.prepare(
+    'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   const selectSettings = db.prepare('SELECT json FROM settings WHERE id = 1');
   const upsertSettings = db.prepare(
     'INSERT INTO settings (id, json) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET json = excluded.json');
@@ -61,6 +68,9 @@ function openDb(filePath) {
       return row ? JSON.parse(row.json) : {};
     },
     saveSettings: (settings) => { upsertSettings.run(JSON.stringify(settings)); },
+    // 程式自己的小狀態，例如新手教學看過了沒
+    getState: (key) => selectState.get(key)?.value ?? null,
+    setState: (key, value) => { upsertState.run(key, String(value)); },
     journalMode: () => db.prepare('PRAGMA journal_mode').get().journal_mode,
     // 存一份完整一致的複本到 target（VACUUM INTO 不會讀到寫到一半的狀態）
     backupTo: (target) => db.prepare('VACUUM INTO ?').run(target),

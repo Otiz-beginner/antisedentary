@@ -349,3 +349,27 @@ test('tick after a long gap while working does not show the reminder', () => {
   assert.equal(state.phase, 'away');
   assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
 });
+
+test('escape while locked unlocks and waits for the next input', () => {
+  const locked = run(ticksActive(0, 32 * M)).state;
+  const { state, effects } = run([{ type: 'escape', now: 33 * M }], locked);
+  assert.equal(state.phase, 'away');
+  assert.equal(state.since, 33 * M);
+  assert.deepEqual(effects, [{ type: 'unlock' }]);
+  const back = run([tick(33 * M + 2 * S, 0)], state).state;
+  assert.equal(back.phase, 'working');
+  assert.equal(back.segStart, 33 * M + 2 * S);
+});
+
+test('escape outside a lock does nothing', () => {
+  for (const state of [
+    initialState(),
+    run(ticksActive(0, 5 * M)).state,
+    run(ticksActive(0, 30 * M)).state,
+    run([{ type: 'meetingOn', now: 0 }]).state,
+  ]) {
+    const out = run([{ type: 'escape', now: 40 * M }], state);
+    assert.deepEqual(out.state, state);
+    assert.deepEqual(out.effects, []);
+  }
+});

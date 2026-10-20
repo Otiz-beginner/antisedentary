@@ -112,3 +112,15 @@ test('daily backup makes one copy per day and keeps the newest 14', () => {
   copy.close();
   db.close();
 });
+
+test('app state values are stored and survive reopen', () => {
+  const file = tmpFile();
+  const db = openDb(file);
+  assert.equal(db.getState('tutorialSeen'), null);
+  db.setState('tutorialSeen', '1');
+  db.setState('tutorialSeen', '2');
+  db.close();
+  const again = openDb(file);
+  assert.equal(again.getState('tutorialSeen'), '2');
+  again.close();
+});
