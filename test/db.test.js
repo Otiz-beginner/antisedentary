@@ -151,3 +151,24 @@ test('a segment can be deleted and an unknown id reports false', () => {
   assert.equal(db.deleteSegment(a), false);
   db.close();
 });
+
+test('breaks (time away from the desk) can be saved, listed, noted and deleted', () => {
+  const db = openDb(tmpFile());
+  const id = db.insertBreak({ startedAt: 2000, endedAt: 9000, host: 'pc' });
+  db.insertBreak({ startedAt: 1000, endedAt: 1500, note: '先的', host: 'pc' });
+  assert.deepEqual(db.listBreaks().map((b) => [b.startedAt, b.endedAt, b.note]), [[1000, 1500, '先的'], [2000, 9000, '']]);
+  assert.equal(db.updateBreakNote(id, '  講電話 '), true);
+  assert.equal(db.listBreaks()[1].note, '講電話');
+  assert.equal(db.deleteBreak(id), true);
+  assert.equal(db.deleteBreak(id), false);
+  assert.equal(db.listBreaks().length, 1);
+  db.close();
+});
+
+test('an older database without the breaks table gets one', () => {
+  const file = tmpFile();
+  openDb(file).close();
+  const db = openDb(file);
+  assert.deepEqual(db.listBreaks(), []);
+  db.close();
+});

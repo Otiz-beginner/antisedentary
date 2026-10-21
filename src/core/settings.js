@@ -10,7 +10,6 @@ const DEFAULTS = Object.freeze({
   reminderMinutes: 3,
   restMinutes: 3,
   idlePauseMinutes: 3,
-  askMaxMinutes: 30,
   askTimeoutSeconds: 60,
   meetingKey: 'M',
   escapeKey: 'E',
@@ -42,10 +41,6 @@ const FIELDS = Object.freeze([
   {
     key: 'idlePauseMinutes', group: 'time', short: '暫停判定', label: '離開多久算暫停', kind: 'minutes', unit: '分鐘', min: 1, max: 15,
     help: '多久沒碰滑鼠和鍵盤就暫停計時。暫停不會歸零，回來時右下角會問「剛剛有站起來嗎？」再決定要不要歸零。',
-  },
-  {
-    key: 'askMaxMinutes', group: 'time', short: '手機上限', label: '離開超過多久就算休息', kind: 'minutes', unit: '分鐘', min: 5, max: 180,
-    help: '離開超過這麼久，就直接當作你有站起來休息過，回來時不再詢問，計時從 0 開始。適合吃飯、出門回來的情況。',
   },
   {
     key: 'askTimeoutSeconds', group: 'time', short: '回答等待', label: '問題卡多久沒回答算還坐著', kind: 'seconds', unit: '秒', min: 15, max: 300,
@@ -121,9 +116,6 @@ function validate(input = {}) {
   if (!errors.cycleMinutes && !errors.reminderMinutes && value.cycleMinutes < value.reminderMinutes + 5) {
     errors.cycleMinutes = `至少要比收尾時間多 5 分鐘（${value.reminderMinutes + 5} 以上）`;
   }
-  if (!errors.askMaxMinutes && !errors.idlePauseMinutes && value.askMaxMinutes <= value.idlePauseMinutes) {
-    errors.askMaxMinutes = '要比「暫停判定」更長';
-  }
   if (!errors.meetingKey && !errors.escapeKey && value.meetingKey === value.escapeKey) {
     errors.escapeKey = '不能跟 Lock-in 用同一組';
   }
@@ -149,7 +141,6 @@ function toConfig(settings, speed = 1) {
     reminderMs: scale(settings.reminderMinutes * MINUTE),
     lockMs: scale(settings.restMinutes * MINUTE),
     idleResetMs: scale(settings.idlePauseMinutes * MINUTE),
-    askMaxMs: scale(settings.askMaxMinutes * MINUTE),
     askTimeoutMs: scale(settings.askTimeoutSeconds * 1000),
     shortIdleSegmentMs: scale(5 * MINUTE),
     tickMs: Math.max(250, Math.min(1000, scale(1000))),

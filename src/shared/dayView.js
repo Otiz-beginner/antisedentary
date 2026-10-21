@@ -13,24 +13,42 @@
   const isEarly = (s, earlyBeforeMs = DEFAULT_EARLY_BEFORE_MS) =>
     BREAK_REASONS.includes(s.endReason) && s.endedAt - s.startedAt < earlyBeforeMs;
 
-  function renderDayList(segments, { earlyBeforeMs } = {}) {
-    if (!segments.length) return '<p class="none">這天沒有紀錄。</p>';
-    const items = segments.map((s, i) => {
-      const minutes = Math.round((s.endedAt - s.startedAt) / 60000);
-      const note = s.note
-        ? `<div class="note">${escapeHtml(s.note).replace(/\r?\n/g, '<br>')}`
-        : '<div class="note empty">沒有寫紀錄';
-      let tag = '';
-      if (s.endReason === 'focus') tag = '<span class="tag focus">Lock-in 專注</span>';
-      else if (isEarly(s, earlyBeforeMs)) tag = '<span class="tag">提早休息</span>';
-      // 補寫或修改這一段的紀錄
-      const edit = s.id === undefined ? ''
-        : `<span class="seg-actions"><button type="button" class="edit-note" data-id="${Number(s.id)}">${s.note ? '修改' : '補寫'}</button>`
-          + `<button type="button" class="delete-seg" data-id="${Number(s.id)}">刪除</button></span>`;
-      // id／data-i 讓時間軸上的區塊可以跳到這一段
-      return `<li id="seg-${i}" data-i="${i}" tabindex="-1"><div class="when">${hm(s.startedAt)}–${hm(s.endedAt)}<small>${minutes} 分鐘</small></div>${note}${tag}${edit}</div></li>`;
-    });
-    return `<ul class="list">${items.join('')}</ul>`;
+  const noteHtml = (note, emptyText) => (note
+    ? `<div class="note">${escapeHtml(note).replace(/\r?\n/g, '<br>')}`
+    : `<div class="note empty">${emptyText}`);
+  // 補寫或修改、刪除；休息多帶 data-kind="break"
+  const actions = (item, kind) => {
+    if (item.id === undefined) return '';
+    const k = kind ? ` data-kind="${kind}"` : '';
+    return `<span class="seg-actions"><button type="button" class="edit-note"${k} data-id="${Number(item.id)}">${item.note ? '修改' : '補寫'}</button>`
+      + `<button type="button" class="delete-seg"${k} data-id="${Number(item.id)}">刪除</button></span>`;
+  };
+  const when = (x) => {
+    const minutes = Math.round((x.endedAt - x.startedAt) / 60000);
+    return `<div class="when">${hm(x.startedAt)}–${hm(x.endedAt)}<small>${minutes} 分鐘</small></div>`;
+  };
+
+  // breaks：這天離開座位的時間，依開始時間插在工作段之間
+  function renderDayList(segments, { earlyBeforeMs, breaks = [] } = {}) {
+    if (!segments.length && !breaks.length) return '<p class="none">這天沒有紀錄。</p>';
+    const rows = [
+      ...segments.map((s, i) => ({ at: s.startedAt, html: segmentItem(s, i, earlyBeforeMs) })),
+      ...breaks.map((b, j) => ({ at: b.startedAt, html: breakItem(b, j) })),
+    ].sort((x, y) => x.at - y.at);
+    return `<ul class="list">${rows.map((r) => r.html).join('')}</ul>`;
+  }
+
+  function segmentItem(s, i, earlyBeforeMs) {
+    let tag = '';
+    if (s.endReason === 'focus') tag = '<span class="tag focus">Lock-in 專注</span>';
+    else if (isEarly(s, earlyBeforeMs)) tag = '<span class="tag">提早休息</span>';
+    // id／data-i 讓時間軸上的區塊可以跳到這一段
+    return `<li id="seg-${i}" data-i="${i}" tabindex="-1">${when(s)}${noteHtml(s.note, '沒有寫紀錄')}${tag}${actions(s)}</div></li>`;
+  }
+
+  function breakItem(b, j) {
+    return `<li id="brk-${j}" data-b="${j}" class="rest" tabindex="-1">${when(b)}${noteHtml(b.note, '沒有寫做了什麼')}`
+      + `<span class="tag rest">休息</span>${actions(b, 'break')}</div></li>`;
   }
 
   const api = { renderDayList, escapeHtml };

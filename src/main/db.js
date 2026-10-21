@@ -31,6 +31,15 @@ function openDb(filePath) {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       json TEXT NOT NULL
     );
+    -- 站起來離開座位的那段時間（回來時可以寫下做了什麼）
+    CREATE TABLE IF NOT EXISTS breaks (
+      id INTEGER PRIMARY KEY,
+      started_at INTEGER NOT NULL,
+      ended_at INTEGER NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      host TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS breaks_started_at ON breaks(started_at);
     CREATE TABLE IF NOT EXISTS app_state (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -38,6 +47,11 @@ function openDb(filePath) {
   `);
   const updateNote = db.prepare('UPDATE segments SET note = ? WHERE id = ?');
   const deleteSeg = db.prepare('DELETE FROM segments WHERE id = ?');
+  const insertBrk = db.prepare('INSERT INTO breaks (started_at, ended_at, note, host) VALUES (?, ?, ?, ?)');
+  const selectBrks = db.prepare(
+    'SELECT id, started_at AS startedAt, ended_at AS endedAt, note, host FROM breaks ORDER BY started_at, id');
+  const updateBrkNote = db.prepare('UPDATE breaks SET note = ? WHERE id = ?');
+  const deleteBrk = db.prepare('DELETE FROM breaks WHERE id = ?');
   const selectState = db.prepare('SELECT value FROM app_state WHERE key = ?');
   const upsertState = db.prepare(
     'INSERT INTO app_state (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
@@ -74,6 +88,12 @@ function openDb(filePath) {
     updateSegmentNote: (id, note) => updateNote.run(String(note ?? '').trim(), Number(id)).changes > 0,
     // 在紀錄頁刪除某一段；找不到這一段就回傳 false
     deleteSegment: (id) => deleteSeg.run(Number(id)).changes > 0,
+    // 離開座位的時間
+    insertBreak: ({ startedAt, endedAt, note = '', host }) =>
+      Number(insertBrk.run(startedAt, endedAt, String(note).trim(), host).lastInsertRowid),
+    listBreaks: () => selectBrks.all().map(plain),
+    updateBreakNote: (id, note) => updateBrkNote.run(String(note ?? '').trim(), Number(id)).changes > 0,
+    deleteBreak: (id) => deleteBrk.run(Number(id)).changes > 0,
     // 程式自己的小狀態，例如新手教學看過了沒
     getState: (key) => selectState.get(key)?.value ?? null,
     setState: (key, value) => { upsertState.run(key, String(value)); },

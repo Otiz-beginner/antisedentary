@@ -5,7 +5,7 @@ const { initialState, step } = require('../src/core/machine');
 
 const S = 1000;
 const M = 60 * S;
-const config = { workMs: 29 * M, reminderMs: 3 * M, lockMs: 3 * M, idleResetMs: 3 * M, askMaxMs: 30 * M, askTimeoutMs: 60 * S };
+const config = { workMs: 29 * M, reminderMs: 3 * M, lockMs: 3 * M, idleResetMs: 3 * M, askTimeoutMs: 60 * S };
 
 function run(inputs, state = initialState()) {
   const effects = [];
@@ -128,7 +128,7 @@ test('paused never reminds or locks', () => {
 // 10 分鐘開始離開，14 分鐘時已經暫停
 const pausedAt14 = () => run(ticksIdleSince(10 * M, 10 * M + S, 14 * M), run(ticksActive(0, 10 * M)).state).state;
 
-test('returning within 30 minutes asks and keeps counting', () => {
+test('returning asks and keeps counting', () => {
   const { state, effects } = run([tick(15 * M, 0)], pausedAt14());
   assert.equal(state.phase, 'working');
   assert.equal(state.segStart, 0);
@@ -141,6 +141,8 @@ test('answering stood up saves the idle segment and restarts at the return', () 
   assert.deepEqual(effects, [
     { type: 'hideQuestion' },
     { type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' },
+    // 接著請你補記剛才那段、和站起來的這段時間
+    { type: 'showReturnCard', segment: { startedAt: 0, endedAt: 10 * M }, breakStartedAt: 10 * M, breakEndedAt: 15 * M },
   ]);
   assert.equal(state.phase, 'working');
   assert.equal(state.segStart, 15 * M);
@@ -185,14 +187,60 @@ test('sitting through past 32 minutes gets a full reminder instead of an instant
   assert.equal(run([tick(36.5 * M + S, 0)], later.state).state.phase, 'locked');
 });
 
-test('paused for 30 minutes counts as a break without asking', () => {
+test('no matter how long you were away, coming back still asks', () => {
   const working = run(ticksActive(0, 10 * M)).state;
-  const { state, effects } = run(ticksIdleSince(10 * M, 10 * M + S, 40 * M), working);
-  assert.equal(state.phase, 'away');
-  assert.deepEqual(effects, [{ type: 'saveSegment', startedAt: 0, endedAt: 10 * M, endReason: 'idle' }]);
-  const back = run([tick(40 * M + S, 0)], state);
+  const { state, effects } = run(ticksIdleSince(10 * M, 10 * M + S, 120 * M), working);
+  assert.equal(state.phase, 'paused');
+  assert.deepEqual(effects, []);
+  const back = run([tick(120 * M + S, 0)], state);
   assert.equal(back.state.phase, 'working');
-  assert.ok(!types(back.effects).includes('showQuestion'));
+  assert.deepEqual(types(back.effects), ['showQuestion']);
+});
+
+test('answering still sitting or not answering shows no return card', () => {
+  const asking = run([tick(15 * M, 0)], pausedAt14()).state;
+  assert.ok(!types(run([{ type: 'answer', now: 15 * M + 5 * S, stood: false }], asking).effects).includes('showReturnCard'));
+  assert.ok(!types(run(ticksActive(15 * M + S, 16 * M), asking).effects).includes('showReturnCard'));
+});
+
+test('after sleeping, the next input starts a new segment and shows the return card', () => {
+  const working = run(ticksActive(0, 10 * M)).state;
+  const slept = run([tick(70 * M, 30 * M)], working).state; // 醒來後還沒碰滑鼠鍵盤
+  assert.equal(slept.phase, 'away');
+  const { state, effects } = run([tick(71 * M, 0)], slept);
+  assert.equal(state.phase, 'working');
+  assert.equal(state.segStart, 71 * M);
+  assert.deepEqual(effects, [
+    { type: 'showReturnCard', segment: { startedAt: 0, endedAt: 10 * M }, breakStartedAt: 10 * M, breakEndedAt: 71 * M },
+  ]);
+  // 只出現一次
+  assert.ok(!types(run(ticksActive(71 * M + S, 72 * M), state).effects).includes('showReturnCard'));
+});
+
+test('after a long suspend, the next input shows the return card', () => {
+  const working = run(ticksActive(0, 10 * M)).state;
+  const resumed = run([{ type: 'suspend', now: 10 * M }, { type: 'resume', now: 40 * M }], working).state;
+  const { effects } = run([tick(40 * M + S, 0)], resumed);
+  assert.deepEqual(effects, [
+    { type: 'showReturnCard', segment: { startedAt: 0, endedAt: 10 * M }, breakStartedAt: 10 * M, breakEndedAt: 40 * M + S },
+  ]);
+});
+
+test('starting work after a forced rest or Lock-in shows no return card', () => {
+  const locked = run(ticksActive(0, 32 * M)).state;
+  const afterRest = run([...ticksActive(32 * M + S, 35 * M), tick(36 * M, 0)], locked);
+  assert.equal(afterRest.state.phase, 'working');
+  assert.ok(!types(afterRest.effects).includes('showReturnCard'));
+  const away = run([{ type: 'escape', now: 33 * M }], locked).state;
+  assert.ok(!types(run([tick(34 * M, 0)], away).effects).includes('showReturnCard'));
+});
+
+test('a break taken while away clears the pending return card', () => {
+  const working = run(ticksActive(0, 10 * M)).state;
+  const slept = run([tick(70 * M, 30 * M)], working).state;
+  const rested = run([{ type: 'startBreak', now: 70 * M, source: 'tray' }, tick(74 * M, 60 * M)], slept).state;
+  assert.equal(rested.phase, 'away');
+  assert.ok(!types(run([tick(75 * M, 0)], rested).effects).includes('showReturnCard'));
 });
 
 test('meetingOn while paused saves the segment ending when you left', () => {

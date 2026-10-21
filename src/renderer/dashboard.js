@@ -14,6 +14,7 @@ const startOfDay = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); ret
 let visible = [];
 let earlyBeforeMs; // 從 main 拿；在這之前自己休息才標「提早休息」
 let meetings = [];
+let breaks = []; // 離開座位的時間
 let selected = null; // 重新整理時保留目前看的那一天
 
 function renderSummary(today) {
@@ -77,10 +78,11 @@ function showDay(d) {
 
   const segs = Stats.segmentsOnDay(visible, key);
   const meets = Stats.meetingsOnDay(meetings, key);
+  const brks = breaks.filter((b) => Stats.dayKey(b.startedAt) === key);
   const total = Stats.summarize(segs).totalMs;
   const title = `${d.getMonth() + 1} 月 ${d.getDate()} 日（${WEEKDAY[d.getDay()]}）`;
   const el = $('day');
-  if (!segs.length && !meets.length) {
+  if (!segs.length && !meets.length && !brks.length) {
     el.innerHTML = `<div class="day-head"><h2>${title}</h2></div>${DayView.renderDayList([])}`;
     return;
   }
@@ -94,13 +96,16 @@ function showDay(d) {
   // 工作段是按鈕：點了跳到下面清單裡的那一段
   const segBar = (s, i) => `<button type="button" class="seg${s.endReason === 'focus' ? ' focus' : ''}" data-i="${i}" style="${style(s.startedAt, s.endedAt)}"
       title="${hm(s.startedAt)}–${hm(s.endedAt)}" aria-label="跳到 ${hm(s.startedAt)} 到 ${hm(s.endedAt)} 這一段"></button>`;
+  // 休息：淡色區塊，點了一樣跳到清單裡那一段
+  const restBar = (b, j) => `<button type="button" class="rest-bar" data-b="${j}" style="${style(b.startedAt, b.endedAt)}"
+      title="休息 ${hm(b.startedAt)}–${hm(b.endedAt)}" aria-label="跳到 ${hm(b.startedAt)} 到 ${hm(b.endedAt)} 的休息"></button>`;
   const minutes = Math.round(total / 60000);
   el.innerHTML = `
     <div class="day-head"><h2>${title}</h2>
       <span class="sum">${segs.length} 段，共 ${Math.floor(minutes / 60)} 小時 ${minutes % 60} 分</span></div>
-    <div class="track">${meets.map(meetBar).join('')}${segs.map(segBar).join('')}</div>
+    <div class="track">${meets.map(meetBar).join('')}${brks.map(restBar).join('')}${segs.map(segBar).join('')}</div>
     <div class="track-axis">${[8, 12, 16, 20, 24].map((h) => `<span style="left:${(h - 8) / 16 * 100}%">${h}:00</span>`).join('')}</div>
-    ${DayView.renderDayList(segs, { earlyBeforeMs })}`;
+    ${DayView.renderDayList(segs, { earlyBeforeMs, breaks: brks })}`;
 }
 
 async function load() {
@@ -108,6 +113,7 @@ async function load() {
   visible = Stats.visibleSegments(data.segments, data.shortIdleSegmentMs);
   earlyBeforeMs = data.earlyBeforeMs;
   meetings = data.meetings;
+  breaks = data.breaks || [];
   const today = startOfDay(data.now);
   renderSummary(today);
   renderHeat(today);
@@ -367,12 +373,13 @@ $('focus-toggle').addEventListener('click', async () => {
 $('day').addEventListener('click', async (e) => {
   const editBtn = e.target.closest('.edit-note');
   if (editBtn) {
-    const seg = visible.find((x) => x.id === Number(editBtn.dataset.id));
+    const kind = editBtn.dataset.kind === 'break' ? 'break' : 'segment';
+    const seg = (kind === 'break' ? breaks : visible).find((x) => x.id === Number(editBtn.dataset.id));
     const noteEl = editBtn.closest('.note');
     if (!seg || !noteEl || noteEl.querySelector('.note-editor')) return;
     noteEl.innerHTML = `<div class="note-editor">
         <textarea aria-label="這段時間做了什麼"></textarea>
-        <div class="row"><button type="button" class="cancel">取消</button><button type="button" class="save" data-id="${seg.id}">儲存</button></div>
+        <div class="row"><button type="button" class="cancel">取消</button><button type="button" class="save" data-kind="${kind}" data-id="${seg.id}">儲存</button></div>
       </div>`;
     const box = noteEl.querySelector('textarea');
     box.value = seg.note || '';
@@ -385,14 +392,15 @@ $('day').addEventListener('click', async (e) => {
     const actions = del.closest('.seg-actions');
     actions.innerHTML = `<span class="confirm-delete" role="group" aria-label="確定要刪除這一段嗎？">確定刪除？
         <button type="button" class="cancel-delete">取消</button>
-        <button type="button" class="do-delete" data-id="${Number(del.dataset.id)}">刪除</button></span>`;
+        <button type="button" class="do-delete" data-kind="${del.dataset.kind === 'break' ? 'break' : 'segment'}" data-id="${Number(del.dataset.id)}">刪除</button></span>`;
     actions.querySelector('.cancel-delete').focus();
     return;
   }
   const doDel = e.target.closest('.do-delete');
   if (doDel) {
     doDel.disabled = true;
-    await window.api.deleteSegment(doDel.dataset.id);
+    if (doDel.dataset.kind === 'break') await window.api.deleteBreak(doDel.dataset.id);
+    else await window.api.deleteSegment(doDel.dataset.id);
     load();
     updateCup();
     return;
@@ -402,7 +410,8 @@ $('day').addEventListener('click', async (e) => {
   if (save) {
     const text = save.closest('.note-editor').querySelector('textarea').value;
     save.disabled = true;
-    await window.api.updateNote(save.dataset.id, text);
+    if (save.dataset.kind === 'break') await window.api.updateBreakNote(save.dataset.id, text);
+    else await window.api.updateNote(save.dataset.id, text);
     load();
     return;
   }
@@ -414,9 +423,9 @@ $('day').addEventListener('keydown', (e) => {
 
 // 點時間軸上的區塊：捲到下面清單裡那一段，並亮一下
 $('day').addEventListener('click', (e) => {
-  const bar = e.target.closest('.track .seg');
+  const bar = e.target.closest('.track .seg, .track .rest-bar');
   if (!bar) return;
-  const item = $(`seg-${bar.dataset.i}`);
+  const item = bar.classList.contains('rest-bar') ? $(`brk-${bar.dataset.b}`) : $(`seg-${bar.dataset.i}`);
   if (!item) return;
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   item.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });

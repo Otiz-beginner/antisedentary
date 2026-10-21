@@ -188,12 +188,13 @@ test('question card shows on return and the answer hides it', () => {
   const clock = { t: 0, idle: 0 };
   const segments = [];
   const ctl = createController({
-    config: { ...config, askMaxMs: 30 * M, askTimeoutMs: 60 * S },
-    db: { insertSegment: (s) => segments.push(s), insertMeeting() {} },
+    config: { ...config, askTimeoutMs: 60 * S },
+    db: { insertSegment: (s) => segments.push(s), insertMeeting() {}, insertBreak: () => 1 },
     ui: {
       showReminder() {}, hideReminder() {}, showLock() {}, hideLock() {}, setMeetingIndicator() {},
       showQuestion: (a) => calls.push(['showQuestion', a]),
       hideQuestion: () => calls.push(['hideQuestion']),
+      showReturnCard() {},
     },
     startLock: () => ({ stop() {} }), host: 'pc', now: () => clock.t, getIdleMs: () => clock.idle,
   });
@@ -394,4 +395,52 @@ test('a break from the dashboard during the Lock-in wrap-up saves the focus sess
   ctl.breakNow('從紀錄頁寫的');
   assert.equal(ctl.phase, 'locked');
   assert.deepEqual(segments.map((s) => [s.endReason, s.note, s.endedAt]), [['focus', '從紀錄頁寫的', 10 * M]]);
+});
+
+function returnSetup(startAt) {
+  const clock = { t: startAt, idle: 0 };
+  const cards = [];
+  const breaks = [];
+  let nextId = 100;
+  const ctl = createController({
+    config: { ...config, askTimeoutMs: 60 * S },
+    db: {
+      insertSegment: () => nextId++,
+      insertMeeting() {},
+      insertBreak: (b) => { breaks.push(b); return 500 + breaks.length; },
+    },
+    ui: {
+      showReminder() {}, hideReminder() {}, showLock() {}, hideLock() {}, setMeetingIndicator() {},
+      showQuestion() {}, hideQuestion() {},
+      showReturnCard: (d) => cards.push(d),
+    },
+    startLock: () => ({ stop() {} }), host: 'pc', now: () => clock.t, getIdleMs: () => clock.idle,
+  });
+  return { ctl, clock, cards, breaks };
+}
+
+test('answering stood up saves the time away as a break and opens the return card', () => {
+  const day = new Date(2026, 9, 21, 9, 0).getTime();
+  const { ctl, clock, cards, breaks } = returnSetup(day);
+  ctl.tick();
+  while (clock.t < day + 10 * M) { clock.t += S; ctl.tick(); }
+  while (clock.t < day + 20 * M) { clock.t += S; clock.idle = clock.t - (day + 10 * M); ctl.tick(); }
+  clock.t += S; clock.idle = 0; ctl.tick();
+  ctl.answer(true);
+  assert.deepEqual(breaks, [{ startedAt: day + 10 * M, endedAt: day + 20 * M + S, host: 'pc' }]);
+  assert.deepEqual(cards, [{
+    segment: { id: 100, startedAt: day, endedAt: day + 10 * M },
+    break: { id: 501, startedAt: day + 10 * M, endedAt: day + 20 * M + S },
+  }]);
+});
+
+test('time away overnight is not saved as a break but the card still asks about the last segment', () => {
+  const evening = new Date(2026, 9, 20, 22, 0).getTime();
+  const { ctl, clock, cards, breaks } = returnSetup(evening);
+  ctl.tick();
+  while (clock.t < evening + 10 * M) { clock.t += S; ctl.tick(); }
+  clock.t = new Date(2026, 9, 21, 9, 0).getTime(); clock.idle = 30 * M; ctl.tick(); // 睡眠醒來
+  clock.t += S; clock.idle = 0; ctl.tick();
+  assert.deepEqual(breaks, []);
+  assert.deepEqual(cards, [{ segment: { id: 100, startedAt: evening, endedAt: evening + 10 * M }, break: null }]);
 });

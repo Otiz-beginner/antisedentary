@@ -170,6 +170,15 @@ h1.slogan { font-size: 34px; letter-spacing: 1px; margin-bottom: 22px; }
 .note-editor .save { color: #fff; background: var(--mist); border: 0; }
 .note-editor .cancel { color: var(--mist); background: #fff; border: 1px solid var(--slate); }
 
+/* 休息（離開座位）：時間軸上的淡色區塊、清單裡的標籤 */
+.track .rest-bar { position: absolute; top: 9px; bottom: 9px; border-radius: 4px; min-width: 4px; border: 0; padding: 0;
+                   cursor: pointer; background: repeating-linear-gradient(135deg, #CFE6FF 0 4px, #E4F1FF 4px 8px); }
+.track .rest-bar:hover { outline: 2px solid var(--water); outline-offset: 1px; }
+.track .rest-bar:focus-visible { outline: 3px solid var(--lilac); outline-offset: 2px; }
+.list li.rest .when { color: #7FA3C9; }
+.list li.rest .note { color: var(--ink-soft); }
+.tag.rest { color: #3F6E9E; background: #DDEEFF; }
+
 /* 刪除一段紀錄 */
 .seg-actions { white-space: nowrap; }
 .delete-seg { margin-left: 2px; font: inherit; font-size: 12px; color: #A0899A; background: transparent; border: 0;

@@ -7,6 +7,7 @@ const RENDERER = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, 'preload.js');
 const REMINDER_SIZE = { width: 320, height: 220 };
 const QUESTION_SIZE = { width: 320, height: 130 };
+const RETURN_SIZE = { width: 320, height: 290 };
 const webPreferences = { preload: PRELOAD, contextIsolation: true, sandbox: true, nodeIntegration: false };
 
 function whenLoaded(win, fn) {
@@ -68,6 +69,10 @@ function createWindows({ log = () => {} } = {}) {
 
   const reminder = cornerCard('reminder.html', REMINDER_SIZE, 'reminder:show', 'reminder');
   const question = cornerCard('question.html', QUESTION_SIZE, 'question:show', 'question');
+  const returnCard = cornerCard('return.html', RETURN_SIZE, 'return:show', 'return');
+  // 補記卡是自動存檔的，提醒卡或問題卡要出現時直接收起，不要疊在一起
+  const showReminder = (d) => { returnCard.hide(); reminder.show(d); };
+  const showQuestion = (d) => { returnCard.hide(); question.show(d); };
 
   // 鎖定前把每個螢幕拍一張小圖，交給鎖定畫面自己模糊。
   // 不靠 Windows 的壓克力效果：遠端桌面或關掉透明效果時，壓克力只會剩下一片單色。
@@ -183,8 +188,9 @@ function createWindows({ log = () => {} } = {}) {
   }
 
   return {
-    showReminder: reminder.show, hideReminder: reminder.hide,
-    showQuestion: question.show, hideQuestion: question.hide,
+    showReminder, hideReminder: reminder.hide,
+    showQuestion, hideQuestion: question.hide,
+    showReturnCard: returnCard.show, hideReturnCard: returnCard.hide,
     showLock, hideLock, openDashboard, onSessionEnd,
     openTutorial, closeTutorial, onTutorialClosed,
   };

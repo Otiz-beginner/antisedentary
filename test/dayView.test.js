@@ -77,3 +77,24 @@ test('each saved item has a delete button', () => {
   assert.ok(html.includes('<button type="button" class="delete-seg" data-id="42">刪除</button>'));
   assert.ok(!renderDayList([seg()]).includes('delete-seg'));
 });
+
+test('breaks are listed in time order between segments with their own tag and buttons', () => {
+  const a = seg({ id: 1, endedAt: t + 30 * M });
+  const b = seg({ id: 2, startedAt: t + 45 * M, endedAt: t + 60 * M });
+  const rest = { id: 7, startedAt: t + 30 * M, endedAt: t + 45 * M, note: '講<電話>' };
+  const html = renderDayList([a, b], { breaks: [rest] });
+  const order = ['id="seg-0"', 'id="brk-0"', 'id="seg-1"'].map((x) => html.indexOf(x));
+  assert.ok(order.every((x) => x >= 0) && order[0] < order[1] && order[1] < order[2], order.join(','));
+  assert.ok(html.includes('<li id="brk-0" data-b="0" class="rest" tabindex="-1">'));
+  assert.ok(html.includes('<span class="tag rest">休息</span>'));
+  assert.ok(html.includes('講&lt;電話&gt;'));
+  assert.ok(html.includes('<button type="button" class="edit-note" data-kind="break" data-id="7">修改</button>'));
+  assert.ok(html.includes('<button type="button" class="delete-seg" data-kind="break" data-id="7">刪除</button>'));
+});
+
+test('a break without a note says 沒有寫做了什麼', () => {
+  const html = renderDayList([], { breaks: [{ id: 3, startedAt: t, endedAt: t + 10 * M, note: '' }] });
+  assert.ok(html.includes('沒有寫做了什麼'));
+  assert.ok(html.includes('data-kind="break" data-id="3">補寫</button>'));
+  assert.ok(!html.includes('這天沒有紀錄'));
+});

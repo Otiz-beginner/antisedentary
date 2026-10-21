@@ -12,6 +12,10 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
   let hotkeys = { meetingVk: 0x4d, escapeVk: 0x45 };
   // 用快捷鍵叫出的提早休息卡片（可以收起；到了提醒時間就變成正常提醒卡）
   let earlyOpen = false;
+  // 最近存的那一段（回來時的補記卡要知道它的 id）
+  let lastSaved = null;
+
+  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 
   function run(effect) {
     switch (effect.type) {
@@ -29,15 +33,31 @@ function createController({ config, db, ui, startLock, host, now = Date.now, get
         ui.hideQuestion();
         break;
       case 'saveSegment':
-        db.insertSegment({
+        lastSaved = {
+          id: db.insertSegment({
+            startedAt: effect.startedAt,
+            endedAt: effect.endedAt,
+            endReason: effect.endReason,
+            note: draft.trim(),
+            host,
+          }),
           startedAt: effect.startedAt,
           endedAt: effect.endedAt,
-          endReason: effect.endReason,
-          note: draft.trim(),
-          host,
-        });
+        };
         draft = '';
         break;
+      case 'showReturnCard': {
+        // 剛才那段：找得到才給 id（沒找到就只問離開的那段）
+        const seg = lastSaved && lastSaved.startedAt === effect.segment.startedAt ? lastSaved : null;
+        // 離開的時間存成一段休息；跨夜（睡一覺回來）不算休息
+        let rest = null;
+        if (effect.breakEndedAt > effect.breakStartedAt && sameDay(effect.breakStartedAt, effect.breakEndedAt)) {
+          const b = { startedAt: effect.breakStartedAt, endedAt: effect.breakEndedAt, host };
+          rest = { id: db.insertBreak(b), startedAt: b.startedAt, endedAt: b.endedAt };
+        }
+        if (seg || rest) ui.showReturnCard({ segment: seg, break: rest });
+        break;
+      }
       case 'saveMeeting':
         db.insertMeeting({ startedAt: effect.startedAt, endedAt: effect.endedAt, host });
         break;

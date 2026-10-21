@@ -8,7 +8,7 @@ const M = 60000;
 test('defaults match the original timings plus the two hotkeys', () => {
   assert.deepEqual(DEFAULTS, {
     cycleMinutes: 32, reminderMinutes: 3, restMinutes: 3,
-    idlePauseMinutes: 3, askMaxMinutes: 30, askTimeoutSeconds: 60,
+    idlePauseMinutes: 3, askTimeoutSeconds: 60,
     meetingKey: 'M', escapeKey: 'E', earlyKey: 'B', autoStart: true,
     restBackground: 'blur', restSlogan: 'break', restSloganText: '',
   });
@@ -16,7 +16,7 @@ test('defaults match the original timings plus the two hotkeys', () => {
 
 test('every field has a short name, a longer help text and a kind', () => {
   assert.deepEqual(FIELDS.map((f) => f.short),
-    ['工作時長', '收尾時間', '休息時長', '暫停判定', '手機上限', '回答等待', 'Lock-in 快捷鍵', '緊急逃出快捷鍵', '提早休息快捷鍵', '開機自動啟動', '休息背景', '休息標語', '自訂標語']);
+    ['工作時長', '收尾時間', '休息時長', '暫停判定', '回答等待', 'Lock-in 快捷鍵', '緊急逃出快捷鍵', '提早休息快捷鍵', '開機自動啟動', '休息背景', '休息標語', '自訂標語']);
   for (const key of Object.keys(DEFAULTS)) {
     const f = FIELDS.find((x) => x.key === key);
     assert.ok(f, key);
@@ -50,7 +50,9 @@ test('settings saved by an older version get the default hotkeys', () => {
   const old = { cycleMinutes: 30, reminderMinutes: 3, restMinutes: 3, idlePauseMinutes: 2, askMaxMinutes: 40, askTimeoutSeconds: 60 };
   const r = validate(old);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.value, { ...old, meetingKey: 'M', escapeKey: 'E', earlyKey: 'B', autoStart: true,
+  // 0.6.0 拿掉了「手機上限」，舊設定裡的值直接忽略
+  const { askMaxMinutes, ...kept } = old;
+  assert.deepEqual(r.value, { ...kept, meetingKey: 'M', escapeKey: 'E', earlyKey: 'B', autoStart: true,
     restBackground: 'blur', restSlogan: 'break', restSloganText: '' });
 });
 
@@ -60,7 +62,6 @@ test('toConfig turns default settings into the original config', () => {
   assert.equal(c.reminderMs, 3 * M);
   assert.equal(c.lockMs, 3 * M);
   assert.equal(c.idleResetMs, 3 * M);
-  assert.equal(c.askMaxMs, 30 * M);
   assert.equal(c.askTimeoutMs, 60000);
   assert.equal(c.shortIdleSegmentMs, 5 * M);
   assert.equal(c.tickMs, 1000);
@@ -101,12 +102,6 @@ test('cycle must leave at least 5 minutes before the wrap-up time', () => {
   assert.ok(r.errors.cycleMinutes);
 });
 
-test('phone limit must be longer than the pause threshold', () => {
-  const r = validate({ ...DEFAULTS, idlePauseMinutes: 10, askMaxMinutes: 10 });
-  assert.equal(r.ok, false);
-  assert.ok(r.errors.askMaxMinutes);
-});
-
 test('missing fields fall back to defaults', () => {
   const r = validate({ cycleMinutes: 40 });
   assert.equal(r.ok, true);
@@ -117,7 +112,7 @@ test('fields are grouped into hotkeys, times and others', () => {
   const groups = {};
   for (const f of FIELDS) (groups[f.group] ||= []).push(f.key);
   assert.deepEqual(groups.hotkey, ['meetingKey', 'escapeKey', 'earlyKey']);
-  assert.deepEqual(groups.time, ['cycleMinutes', 'reminderMinutes', 'restMinutes', 'idlePauseMinutes', 'askMaxMinutes', 'askTimeoutSeconds']);
+  assert.deepEqual(groups.time, ['cycleMinutes', 'reminderMinutes', 'restMinutes', 'idlePauseMinutes', 'askTimeoutSeconds']);
   assert.deepEqual(groups.rest, ['restBackground', 'restSlogan', 'restSloganText']);
   assert.deepEqual(groups.other, ['autoStart']);
 });

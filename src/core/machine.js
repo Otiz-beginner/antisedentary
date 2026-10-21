@@ -3,7 +3,7 @@
 // 計時狀態機（spec §3、§4）。純函式：不讀時鐘、不做 I/O，所有動作都以 effects 回傳。
 //
 // phase：
-//   away     還沒開始計時
+//   away     還沒開始計時；因為離開而結束的那一段會記在 pending，回來開始新的一段時請你補記
 //   working  正常工作中；回來時若有問題卡，帶著 ask: { idleFrom, returnAt, shownAt }
 //   reminder 提醒卡出現中，lockAt 時鎖定
 //   paused   閒置滿 3 分鐘，暫停計時（不提醒、不鎖定），等你回來再問「剛剛有站起來嗎？」
@@ -39,6 +39,18 @@ function saveFocus(state, endedAt) {
   return effects;
 }
 
+// 人離開了（睡眠、鎖定畫面、長時間沒有 tick）：存下這一段，回來時再請你補記
+function leaveIdle(state, endedAt, now) {
+  return {
+    state: { ...away(now), pending: { startedAt: state.segStart, endedAt } },
+    effects: endSegment(state, endedAt, 'idle'),
+  };
+}
+
+// 回來開始新的一段：請你補記剛才那段做了什麼、站起來做了什麼
+const returnCard = (segment, breakEndedAt) =>
+  ({ type: 'showReturnCard', segment, breakStartedAt: segment.endedAt, breakEndedAt });
+
 function withoutAsk(state) {
   const { ask, ...rest } = state;
   return rest;
@@ -53,14 +65,14 @@ function onTick(state, { now, idleMs }, config) {
     case 'away':
       // 只有在進入 away 之後真的有輸入，才算回來工作（鎖定中被吞掉的輸入不算）
       if (idleMs < config.idleResetMs && lastInput >= state.since) {
-        return { state: { phase: 'working', segStart: lastInput }, effects: [] };
+        const effects = state.pending ? [returnCard(state.pending, lastInput)] : [];
+        return { state: { phase: 'working', segStart: lastInput }, effects };
       }
       return { state, effects: [] };
 
     case 'paused':
-      if (gap || now - state.idleFrom >= config.askMaxMs) {
-        return { state: away(now), effects: endSegment(state, state.idleFrom, 'idle') };
-      }
+      // 不管離開多久，回來都會問；只有睡眠醒來（tick 中斷）才直接結束這一段
+      if (gap) return leaveIdle(state, state.idleFrom, now);
       if (idleMs < config.idleResetMs) {
         // 回來了：先當作還坐著繼續計時，同時問一句
         return {
@@ -72,7 +84,7 @@ function onTick(state, { now, idleMs }, config) {
 
     case 'working':
     case 'reminder': {
-      if (gap) return { state: away(now), effects: endSegment(state, state.lastTickAt, 'idle') };
+      if (gap) return leaveIdle(state, state.lastTickAt, now);
       if (idleMs >= config.idleResetMs) {
         const effects = [];
         if (state.phase === 'reminder') effects.push({ type: 'hideReminder' });
@@ -138,6 +150,7 @@ function step(state, input, config) {
       if (!input.stood) return { state: withoutAsk(state), effects };
       // 有站起來：離開前那段存成一段，從回來那一刻重新開始
       effects.push(segment(state.segStart, state.ask.idleFrom, 'idle'));
+      effects.push(returnCard({ startedAt: state.segStart, endedAt: state.ask.idleFrom }, state.ask.returnAt));
       return { state: { ...withoutAsk(state), segStart: state.ask.returnAt }, effects };
     }
 
@@ -188,7 +201,7 @@ function step(state, input, config) {
       if (state.suspendAt === undefined) return same;
       const { suspendAt, ...rest } = state;
       if (hasSegment(state) && now - suspendAt >= config.idleResetMs) {
-        return { state: away(now), effects: endSegment(state, segmentEnd(state, suspendAt), 'idle') };
+        return leaveIdle(state, segmentEnd(state, suspendAt), now);
       }
       if (state.phase === 'focusWrap' && now - suspendAt >= config.idleResetMs) {
         return { state: away(now), effects: saveFocus(state, state.focusEnd) };

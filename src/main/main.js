@@ -71,6 +71,7 @@ function start() {
     db: {
       insertSegment: (s) => { log('save segment', { ...s, note: s.note ? `${s.note.length} chars` : '' }); return db.insertSegment(s); },
       insertMeeting: (m) => { log('save meeting', m); return db.insertMeeting(m); },
+      insertBreak: (b) => { log('save break', b); return db.insertBreak(b); },
     },
     host: os.hostname(),
     getIdleMs: () => powerMonitor.getSystemIdleTime() * 1000,
@@ -85,6 +86,7 @@ function start() {
       hideReminder: windows.hideReminder,
       showQuestion: (d) => { log('show question', d); windows.showQuestion(d); },
       hideQuestion: windows.hideQuestion,
+      showReturnCard: (d) => { log('show return card', d); windows.showReturnCard(d); },
       showLock: (d) => {
         log('lock', d);
         windows.showLock({ ...d, background: settings.restBackground, slogan: sloganFor(settings) });
@@ -145,9 +147,17 @@ function start() {
     controller.breakNow(note);
     return controller.phase;
   });
+  // 回來時的補記卡：打字就存進那一段或那段休息
+  ipcMain.handle('return:note', (_e, kind, id, text) =>
+    (kind === 'break' ? db.updateBreakNote(id, text) : db.updateSegmentNote(id, text)));
+  ipcMain.on('return:close', () => windows.hideReturnCard());
+  // 紀錄頁：休息的補寫與刪除
+  ipcMain.handle('break:note', (_e, id, note) => db.updateBreakNote(id, note));
+  ipcMain.handle('break:delete', (_e, id) => { const ok = db.deleteBreak(id); log('break deleted', { id, ok }); return ok; });
   ipcMain.on('question:answer', (_e, stood) => { log('answer', { stood }); controller.answer(stood); });
   ipcMain.handle('records:get', () => ({
     segments: db.listSegments(),
+    breaks: db.listBreaks(),
     meetings: db.listMeetings(),
     now: Date.now(),
     shortIdleSegmentMs: config.shortIdleSegmentMs,
